@@ -1,0 +1,136 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Brand Colors - Neon & Glass */
+  --primary: #00f0ff;
+  /* Neon Cyan */
+  --primary-glow: rgba(0, 240, 255, 0.4);
+  --secondary: #7000ff;
+  /* Neon Purple */
+  --secondary-glow: rgba(112, 0, 255, 0.4);
+  --accent: #ff0055;
+  /* Neon Pink/Red */
+
+  /* Status Colors */
+  --success: #00ff9d;
+  /* Neon Green */
+  --warning: #ffb800;
+  /* Neon Orange */
+  --danger: #ff2a2a;
+  /* Neon Red */
+  --info: #00ccff;
+
+  /* Backgrounds */
+  --bg-dark: #0a0a12;
+  --bg-card: rgba(20, 20, 30, 0.6);
+  --bg-glass: rgba(255, 255, 255, 0.05);
+  --bg-glass-hover: rgba(255, 255, 255, 0.1);
+
+  /* Text */
+  --text-main: #ffffff;
+  --text-muted: #a0a0b0;
+  --text-dim: #606070;
+
+  /* Borders & Shadows */
+  --border-glass: rgba(255, 255, 255, 0.1);
+  --border-neon: rgba(0, 240, 255, 0.3);
+  --shadow-glass: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+  --shadow-neon: 0 0 10px var(--primary-glow);
+
+  /* Spacing & Radius */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 20px;
+  --radius-full: 9999px;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Inter', sans-serif;
+  background-color: var(--bg-dark);
+  color: var(--text-main);
+  background-image:
+    radial-gradient(circle at 10% 20%, rgba(112, 0, 255, 0.1) 0%, transparent 40%),
+    radial-gradient(circle at 90% 80%, rgba(0, 240, 255, 0.1) 0%, transparent 40%);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* Utility Classes for Glassmorphism */
+.glass-panel {
+  background: var(--bg-card);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--border-glass);
+  box-shadow: var(--shadow-glass);
+}
+
+.glass-button {
+  background: var(--bg-glass);
+  border: 1px solid var(--border-glass);
+  color: var(--text-main);
+  backdrop-filter: blur(4px);
+  transition: all 0.3s ease;
+}
+
+.glass-button:hover {
+  background: var(--bg-glass-hover);
+  border-color: var(--primary);
+  box-shadow: 0 0 15px var(--primary-glow);
+  transform: translateY(-1px);
+}
+
+.text-neon {
+  color: var(--primary);
+  text-shadow: 0 0 10px var(--primary-glow);
+}
+
+.text-gradient {
+  background: linear-gradient(to right, var(--primary), var(--secondary));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-dark);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-glass);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--primary);
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.5s ease-out forwards;
+}
