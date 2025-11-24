@@ -14,6 +14,8 @@ export const ProjectProvider = ({ children }) => {
     const [corrosionData, setCorrosionData] = useState([]);
     const [zones, setZones] = useState([]);
     const [users, setUsers] = useState([]);
+    const [headerImage, setHeaderImage] = useState(null); // For report header
+    const [observations, setObservations] = useState({}); // RTG-specific observations
 
     // Initialize with Demo Data
     useEffect(() => {
@@ -24,6 +26,18 @@ export const ProjectProvider = ({ children }) => {
         setCorrosionData(demoData.corrosionData);
         setZones(demoData.zones);
         setUsers(demoData.users);
+
+        // Load header image from localStorage if exists
+        const savedHeader = localStorage.getItem('reportHeaderImage');
+        if (savedHeader) {
+            setHeaderImage(savedHeader);
+        }
+
+        // Load observations from localStorage
+        const savedObservations = localStorage.getItem('reportObservations');
+        if (savedObservations) {
+            setObservations(JSON.parse(savedObservations));
+        }
     }, []);
 
     const toggleTheme = () => {
@@ -47,11 +61,15 @@ export const ProjectProvider = ({ children }) => {
         corrosionData,
         zones,
         users,
+        headerImage,
+        observations,
         getRTGProgress,
         // Add setters as needed for modules
         setWorkOrders,
         setPaintingData,
-        setCorrosionData
+        setCorrosionData,
+        setHeaderImage,
+        setObservations
     };
 
     return (

@@ -1,15 +1,38 @@
-import React, { useState } from 'react';
-import { User, Bell, Shield, Moon, LogOut, GraduationCap, Sun, Database, PlayCircle } from 'lucide-react';
-import { useTutorial } from '../context/TutorialContext';
+import React, { useState, useRef } from 'react';
+import { User, Moon, FileText } from 'lucide-react';
 import Card from '../components/Card';
 import Button from '../components/Button';
-
 import { useApp } from '../context/AppContext';
+import { useProject } from '../context/ProjectContext';
 
 const Settings = () => {
-    const { startTutorial, hasCompletedTutorial, resetTutorial } = useTutorial();
-    const { theme, toggleTheme, loadDemoData } = useApp();
-    const [notifications, setNotifications] = useState(true);
+    const { theme, toggleTheme } = useApp();
+    const { headerImage, setHeaderImage } = useProject();
+    const fileInputRef = useRef(null);
+
+    const handleUploadClick = () => {
+        fileInputRef.current?.click();
+    };
+
+    const handleFileChange = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setHeaderImage(reader.result);
+                localStorage.setItem('reportHeaderImage', reader.result);
+            };
+            reader.readAsDataURL(file);
+        }
+    };
+
+    const handleRemoveHeader = () => {
+        setHeaderImage(null);
+        localStorage.removeItem('reportHeaderImage');
+        if (fileInputRef.current) {
+            fileInputRef.current.value = '';
+        }
+    };
 
     return (
         <div className="space-y-6 max-w-4xl mx-auto">
@@ -32,46 +55,7 @@ const Settings = () => {
                 </div>
             </Card>
 
-            {/* Data Management */}
-            <Card title="Data Management" icon={Database}>
-                <div className="space-y-4">
-                    <div className="flex items-center justify-between p-4 rounded-lg bg-[var(--bg-glass)] border border-[var(--border-glass)]">
-                        <div>
-                            <h3 className="font-bold text-[var(--text-main)]">Demo Scenario</h3>
-                            <p className="text-sm text-[var(--text-muted)]">Reset app and load end-to-end demo data</p>
-                        </div>
-                        <Button variant="primary" icon={PlayCircle} onClick={loadDemoData}>Load Demo</Button>
-                    </div>
-                </div>
-            </Card>
-
-            {/* Tutorial Section */}
-            <Card title="Tutorial & Help" icon={GraduationCap}>
-                <div className="space-y-4">
-                    <div className="flex items-center justify-between p-3 rounded hover:bg-[var(--bg-glass)]">
-                        <div className="flex items-center gap-3">
-                            <div className="p-2 rounded bg-[var(--primary)]/10 text-[var(--primary)]">
-                                <GraduationCap className="w-5 h-5" />
-                            </div>
-                            <div>
-                                <p className="font-medium text-[var(--text-main)]">App Tutorial</p>
-                                <p className="text-xs text-[var(--text-muted)]">
-                                    {hasCompletedTutorial ? 'Completed - Click to restart' : 'Learn how to use the app'}
-                                </p>
-                            </div>
-                        </div>
-                        <Button
-                            variant="primary"
-                            size="sm"
-                            onClick={hasCompletedTutorial ? resetTutorial : startTutorial}
-                        >
-                            {hasCompletedTutorial ? 'Restart Tutorial' : 'Start Tutorial'}
-                        </Button>
-                    </div>
-                </div>
-            </Card>
-
-            {/* App Preferences */}
+            {/* App Preferences - Dark Mode Only */}
             <Card title="Application Preferences">
                 <div className="space-y-4">
                     <div className="flex items-center justify-between p-3 rounded hover:bg-[var(--bg-glass)]">
@@ -96,38 +80,52 @@ const Settings = () => {
                             <label htmlFor="toggle" className="toggle-label block overflow-hidden h-6 rounded-full bg-gray-700 cursor-pointer"></label>
                         </div>
                     </div>
-
-                    <div className="flex items-center justify-between p-3 rounded hover:bg-[var(--bg-glass)]">
-                        <div className="flex items-center gap-3">
-                            <div className="p-2 rounded bg-[var(--secondary)]/10 text-[var(--secondary)]">
-                                <Bell className="w-5 h-5" />
-                            </div>
-                            <div>
-                                <p className="font-medium text-[var(--text-main)]">Notifications</p>
-                                <p className="text-xs text-[var(--text-muted)]">Email and push alerts</p>
-                            </div>
-                        </div>
-                        <Button variant="ghost" size="sm">Configure</Button>
-                    </div>
-
-                    <div className="flex items-center justify-between p-3 rounded hover:bg-[var(--bg-glass)]">
-                        <div className="flex items-center gap-3">
-                            <div className="p-2 rounded bg-[var(--success)]/10 text-[var(--success)]">
-                                <Shield className="w-5 h-5" />
-                            </div>
-                            <div>
-                                <p className="font-medium text-[var(--text-main)]">Security</p>
-                                <p className="text-xs text-[var(--text-muted)]">Password and 2FA</p>
-                            </div>
-                        </div>
-                        <Button variant="ghost" size="sm">Manage</Button>
-                    </div>
                 </div>
             </Card>
 
-            <div className="flex justify-center pt-6">
-                <Button variant="danger" icon={LogOut}>Sign Out</Button>
-            </div>
+            {/* Report Header Image */}
+            <Card title="Report Configuration" icon={FileText}>
+                <div className="space-y-4">
+                    <div className="p-4 rounded-lg bg-[var(--bg-glass)] border border-[var(--border-glass)]">
+                        <div className="mb-3">
+                            <h3 className="font-bold text-[var(--text-main)] mb-1">Report Header Image</h3>
+                            <p className="text-sm text-[var(--text-muted)]">Upload a custom header image for PDF reports (recommended: 800x150px)</p>
+                        </div>
+                        {headerImage && (
+                            <div className="mb-3 p-2 bg-white rounded border border-gray-300">
+                                <img src={headerImage} alt="Report Header" className="max-h-24 mx-auto" />
+                            </div>
+                        )}
+                        <div className="flex gap-2">
+                            <input
+                                type="file"
+                                accept="image/*"
+                                className="hidden"
+                                ref={fileInputRef}
+                                onChange={handleFileChange}
+                            />
+                            <Button
+                                variant="primary"
+                                size="sm"
+                                className="w-full"
+                                onClick={handleUploadClick}
+                            >
+                                {headerImage ? 'Change Header' : 'Upload Header'}
+                            </Button>
+
+                            {headerImage && (
+                                <Button
+                                    variant="danger"
+                                    size="sm"
+                                    onClick={handleRemoveHeader}
+                                >
+                                    Remove
+                                </Button>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            </Card>
         </div>
     );
 };

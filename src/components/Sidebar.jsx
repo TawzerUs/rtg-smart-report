@@ -1,11 +1,11 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Camera, Settings } from 'lucide-react';
+import { LayoutDashboard, Camera, Settings, Shield } from 'lucide-react';
 
 const Sidebar = ({ isOpen, toggleSidebar }) => {
     const navItems = [
         { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
-        { path: '/admin', label: 'Admin', icon: Settings },
+        { path: '/admin', label: 'Admin', icon: Shield },
         { path: '/settings', label: 'Settings', icon: Settings },
     ];
 

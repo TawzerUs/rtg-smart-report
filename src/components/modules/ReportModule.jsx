@@ -7,7 +7,7 @@ import ReportTemplate from '../reports/ReportTemplate';
 import { FileText, Download, Eye, Printer } from 'lucide-react';
 
 const ReportModule = ({ rtgId }) => {
-    const { rtgs, workOrders, corrosionData, paintingData } = useProject();
+    const { rtgs, workOrders, corrosionData, paintingData, headerImage, observations, setObservations } = useProject();
 
     // Aggregate Data for the Report
     const rtg = rtgs.find(r => r.id === rtgId);
@@ -20,6 +20,13 @@ const ReportModule = ({ rtgId }) => {
     const today = new Date().toISOString().split('T')[0];
 
     const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+    const [localObservations, setLocalObservations] = useState(observations[rtgId] || '');
+
+    const handleSaveObservations = () => {
+        const updated = { ...observations, [rtgId]: localObservations };
+        setObservations(updated);
+        localStorage.setItem('reportObservations', JSON.stringify(updated));
+    };
 
     const reportData = {
         rtg,
@@ -27,14 +34,23 @@ const ReportModule = ({ rtgId }) => {
         corrosion,
         painting,
         weather,
-        date: today
+        date: today,
+        headerImage,
+        observations: localObservations
     };
 
     const handlePrint = () => {
-        const printContent = document.getElementById('report-preview-content');
-        if (!printContent) return;
+        const reportContent = document.getElementById('report-preview-content');
+        if (!reportContent) {
+            console.error('Report content not found');
+            return;
+        }
 
-        const printWindow = window.open('', 'PRINT', 'height=800,width=600');
+        // Get the HTML content as string
+        const htmlContent = reportContent.innerHTML;
+
+        // Create print window
+        const printWindow = window.open('', '_blank', 'width=800,height=600');
 
         printWindow.document.write(`
             <!DOCTYPE html>
@@ -44,42 +60,65 @@ const ReportModule = ({ rtgId }) => {
                     <title>Rapport - ${rtgId}</title>
                     <script src="https://cdn.tailwindcss.com"></script>
                     <style>
-                        @page { 
-                            size: A4; 
-                            margin: 0; 
+                        @page {
+                            size: A4;
+                            margin: 0;
                         }
+                        
+                        body {
+                            margin: 0;
+                            padding: 0;
+                            -webkit-print-color-adjust: exact;
+                            print-color-adjust: exact;
+                        }
+                        
                         @media print {
-                            body { 
-                                -webkit-print-color-adjust: exact; 
-                                print-color-adjust: exact;
+                            body {
                                 margin: 0;
                                 padding: 0;
                             }
                         }
-                        body {
-                            margin: 0;
-                            padding: 0;
-                        }
                     </style>
                 </head>
                 <body>
-                    ${printContent.innerHTML}
+                    ${htmlContent}
                 </body>
             </html>
         `);
 
         printWindow.document.close();
-        printWindow.focus();
 
-        // Wait for Tailwind to load before printing
+        // Wait for Tailwind to load and render, then print
         setTimeout(() => {
+            printWindow.focus();
             printWindow.print();
-            printWindow.close();
-        }, 1000);
+            setTimeout(() => printWindow.close(), 500);
+        }, 2000);
     };
 
     return (
         <div className="space-y-6">
+            {/* Observations Section */}
+            <Card title="Observations Générales">
+                <div className="space-y-3">
+                    <p className="text-sm text-[var(--text-muted)]">
+                        Ajoutez des observations ou commentaires qui apparaîtront dans le rapport final.
+                    </p>
+                    <textarea
+                        value={localObservations}
+                        onChange={(e) => setLocalObservations(e.target.value)}
+                        placeholder="Saisissez vos observations ici..."
+                        className="w-full h-32 bg-[var(--bg-dark)] border border-[var(--border-glass)] rounded p-3 text-[var(--text-main)] focus:border-[var(--primary)] outline-none resize-none"
+                    />
+                    <div className="flex justify-end">
+                        <Button variant="primary" size="sm" onClick={handleSaveObservations}>
+                            Enregistrer les Observations
+                        </Button>
+                    </div>
+                </div>
+            </Card>
+
+            {/* Report Generation */}
             <Card title="Génération de Rapport">
                 <div className="flex flex-col md:flex-row items-center justify-between gap-4">
                     <div>
