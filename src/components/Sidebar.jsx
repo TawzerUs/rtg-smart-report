@@ -1,13 +1,10 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, ClipboardList, Camera, FileText, Settings, Menu } from 'lucide-react';
+import { LayoutDashboard, Camera, Settings } from 'lucide-react';
 
 const Sidebar = ({ isOpen, toggleSidebar }) => {
     const navItems = [
         { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
-        { icon: ClipboardList, label: 'Tasks & OTs', path: '/tasks' },
-        { path: '/photos', label: 'Photos', icon: Camera },
-        { path: '/reports', label: 'Reports', icon: FileText },
         { path: '/admin', label: 'Admin', icon: Settings },
         { path: '/settings', label: 'Settings', icon: Settings },
     ];

@@ -1,11 +1,15 @@
-import React from 'react';
-import { User, Bell, Shield, Moon, LogOut, GraduationCap } from 'lucide-react';
+import React, { useState } from 'react';
+import { User, Bell, Shield, Moon, LogOut, GraduationCap, Sun, Database, PlayCircle } from 'lucide-react';
 import { useTutorial } from '../context/TutorialContext';
 import Card from '../components/Card';
 import Button from '../components/Button';
 
+import { useApp } from '../context/AppContext';
+
 const Settings = () => {
     const { startTutorial, hasCompletedTutorial, resetTutorial } = useTutorial();
+    const { theme, toggleTheme, loadDemoData } = useApp();
+    const [notifications, setNotifications] = useState(true);
 
     return (
         <div className="space-y-6 max-w-4xl mx-auto">
@@ -24,6 +28,19 @@ const Settings = () => {
                     </div>
                     <div className="ml-auto">
                         <Button variant="secondary" size="sm">Edit Profile</Button>
+                    </div>
+                </div>
+            </Card>
+
+            {/* Data Management */}
+            <Card title="Data Management" icon={Database}>
+                <div className="space-y-4">
+                    <div className="flex items-center justify-between p-4 rounded-lg bg-[var(--bg-glass)] border border-[var(--border-glass)]">
+                        <div>
+                            <h3 className="font-bold text-[var(--text-main)]">Demo Scenario</h3>
+                            <p className="text-sm text-[var(--text-muted)]">Reset app and load end-to-end demo data</p>
+                        </div>
+                        <Button variant="primary" icon={PlayCircle} onClick={loadDemoData}>Load Demo</Button>
                     </div>
                 </div>
             </Card>
@@ -68,7 +85,14 @@ const Settings = () => {
                             </div>
                         </div>
                         <div className="relative inline-block w-12 mr-2 align-middle select-none transition duration-200 ease-in">
-                            <input type="checkbox" name="toggle" id="toggle" className="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer checked:right-0 checked:border-[var(--primary)]" defaultChecked />
+                            <input
+                                type="checkbox"
+                                name="toggle"
+                                id="toggle"
+                                className="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer checked:right-0 checked:border-[var(--primary)]"
+                                checked={theme === 'dark'}
+                                onChange={toggleTheme}
+                            />
                             <label htmlFor="toggle" className="toggle-label block overflow-hidden h-6 rounded-full bg-gray-700 cursor-pointer"></label>
                         </div>
                     </div>

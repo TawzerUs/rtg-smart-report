@@ -3,12 +3,12 @@ import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import '../index.css';
 
-const Modal = ({ isOpen, onClose, title, children }) => {
+const Modal = ({ isOpen, onClose, title, children, maxWidth = 'max-w-2xl' }) => {
     if (!isOpen) return null;
 
     return createPortal(
         <div className="fixed inset-0 z-[100] flex items-center justify-center overflow-y-auto overflow-x-hidden bg-black/80 backdrop-blur-sm p-4">
-            <div className="relative w-full max-w-2xl my-auto">
+            <div className={`relative w-full ${maxWidth} my-auto`}>
                 <div className="relative rounded-xl glass-panel shadow-[0_0_50px_rgba(0,0,0,0.7)] border border-[var(--primary)]/30 flex flex-col max-h-[90vh]">
                     {/* Header */}
                     <div className="flex items-center justify-between p-4 border-b border-[var(--border-glass)] shrink-0">

@@ -151,7 +151,7 @@ const Photos = () => {
                     <button
                         onClick={() => setActiveRTG('all')}
                         className={`px-4 py-2 rounded-t-lg font-medium transition-all whitespace-nowrap ${activeRTG === 'all'
-                            ? 'bg-[var(--bg-glass)] text-[var(--primary)] border-b-2 border-[var(--primary)]'
+                            ? 'bg-[var(--primary)] text-black shadow-[0_0_15px_var(--primary-glow)]'
                             : 'text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--bg-glass)]/50'
                             }`}
                     >
@@ -164,7 +164,7 @@ const Photos = () => {
                                 key={rtg.id}
                                 onClick={() => setActiveRTG(rtg.id.toString())}
                                 className={`px-4 py-2 rounded-t-lg font-medium transition-all whitespace-nowrap ${activeRTG === rtg.id.toString()
-                                    ? 'bg-[var(--bg-glass)] text-[var(--primary)] border-b-2 border-[var(--primary)]'
+                                    ? 'bg-[var(--primary)] text-black shadow-[0_0_15px_var(--primary-glow)]'
                                     : 'text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--bg-glass)]/50'
                                     }`}
                             >
@@ -182,7 +182,7 @@ const Photos = () => {
                     <button
                         onClick={() => setGroupBy('task')}
                         className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${groupBy === 'task'
-                            ? 'bg-[var(--primary)] text-white'
+                            ? 'bg-[var(--primary)] text-black shadow-[0_0_10px_var(--primary-glow)]'
                             : 'bg-[var(--bg-dark)] text-[var(--text-muted)] hover:text-[var(--text-main)]'
                             }`}
                     >
@@ -192,7 +192,7 @@ const Photos = () => {
                     <button
                         onClick={() => setGroupBy('type')}
                         className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${groupBy === 'type'
-                            ? 'bg-[var(--primary)] text-white'
+                            ? 'bg-[var(--primary)] text-black shadow-[0_0_10px_var(--primary-glow)]'
                             : 'bg-[var(--bg-dark)] text-[var(--text-muted)] hover:text-[var(--text-main)]'
                             }`}
                     >
@@ -202,7 +202,7 @@ const Photos = () => {
                     <button
                         onClick={() => setGroupBy('date')}
                         className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${groupBy === 'date'
-                            ? 'bg-[var(--primary)] text-white'
+                            ? 'bg-[var(--primary)] text-black shadow-[0_0_10px_var(--primary-glow)]'
                             : 'bg-[var(--bg-dark)] text-[var(--text-muted)] hover:text-[var(--text-main)]'
                             }`}
                     >

@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { getDemoState } from '../utils/demoData';
 
 const AppContext = createContext();
 
@@ -25,10 +26,29 @@ const initialState = {
     corrosionData: [],
     paintingData: [],
     qhsseData: [],
+    qhsseInspections: [],
+    wasteLogs: [],
     photos: [],
 };
 
 export const AppProvider = ({ children }) => {
+    const [theme, setTheme] = useState(() => {
+        return localStorage.getItem('theme') || 'dark';
+    });
+
+    const toggleTheme = () => {
+        setTheme(prev => {
+            const newTheme = prev === 'dark' ? 'light' : 'dark';
+            localStorage.setItem('theme', newTheme);
+            return newTheme;
+        });
+    };
+
+    // Apply theme to body
+    useEffect(() => {
+        document.body.className = theme;
+    }, [theme]);
+
     const [state, setState] = useState(() => {
         // Load from localStorage
         const stored = localStorage.getItem(STORAGE_KEY);
@@ -136,9 +156,32 @@ export const AppProvider = ({ children }) => {
 
     const addPaintingRecord = (record) => addItem('paintingData', record);
     const updatePaintingRecord = (id, updates) => updateItem('paintingData', id, updates);
+    const updatePaintingLayer = (rtgId, type, layerId, updates) => {
+        setState(prev => {
+            // Find existing record for this RTG and type
+            const existingRecordIndex = prev.paintingData.findIndex(p => p.rtgId === rtgId && p.type === type);
+
+            let newPaintingData = [...prev.paintingData];
+
+            if (existingRecordIndex >= 0) {
+                // Update existing record
+                const record = newPaintingData[existingRecordIndex];
+                const updatedLayers = record.layers.map(l => l.id === layerId ? { ...l, ...updates } : l);
+                newPaintingData[existingRecordIndex] = { ...record, layers: updatedLayers };
+            } else {
+                // Create new record if not exists (should be initialized elsewhere, but safe fallback)
+                // This part assumes we have a default structure, which we might need to define
+            }
+
+            return { ...prev, paintingData: newPaintingData };
+        });
+    };
 
     const addQHSSERecord = (record) => addItem('qhsseData', record);
     const updateQHSSERecord = (id, updates) => updateItem('qhsseData', id, updates);
+
+    const addQHSSEInspection = (inspection) => addItem('qhsseInspections', inspection);
+    const addWasteLog = (log) => addItem('wasteLogs', log);
 
     const addPhoto = (photo) => addItem('photos', photo);
     const deletePhoto = (id) => deleteItem('photos', id);
@@ -148,6 +191,23 @@ export const AppProvider = ({ children }) => {
         const workOrders = state.workOrders.filter(wo => wo.rtgId === rtgId);
         const logs = state.dailyLogs.filter(log => log.rtgId === rtgId);
         const corrosion = state.corrosionData.filter(c => c.rtgId === rtgId);
+        const painting = state.paintingData.filter(p => p.rtgId === rtgId);
+
+        // Calculate painting progress
+        let paintingProgress = 0;
+        if (painting.length > 0) {
+            const totalLayers = painting.reduce((acc, curr) => acc + curr.layers.length, 0);
+            const completedLayers = painting.reduce((acc, curr) => acc + curr.layers.filter(l => l.status === 'Completed').length, 0);
+            paintingProgress = totalLayers > 0 ? Math.round((completedLayers / totalLayers) * 100) : 0;
+        }
+
+        return {
+            totalWorkOrders: workOrders.length,
+            activeWorkOrders: workOrders.filter(wo => wo.status !== 'Completed').length,
+            totalLogs: logs.length,
+            corrosionPoints: corrosion.length,
+            paintingProgress
+        };
 
         return {
             totalWorkOrders: workOrders.length,
@@ -191,9 +251,21 @@ export const AppProvider = ({ children }) => {
         };
     };
 
+    const loadDemoData = () => {
+        const demoState = getDemoState();
+        setState({ ...initialState, ...demoState });
+        // Force save to local storage immediately
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...initialState, ...demoState }));
+        // Reload page to ensure all components refresh cleanly
+        window.location.reload();
+    };
+
     const value = {
         // State
         ...state,
+        theme,
+        toggleTheme,
+        loadDemoData,
 
         // RTG operations
         addRTG,
@@ -248,10 +320,13 @@ export const AppProvider = ({ children }) => {
         // Painting operations
         addPaintingRecord,
         updatePaintingRecord,
+        updatePaintingLayer,
 
         // QHSSE operations
         addQHSSERecord,
         updateQHSSERecord,
+        addQHSSEInspection,
+        addWasteLog,
 
         // Photo operations
         addPhoto,

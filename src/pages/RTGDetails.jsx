@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ClipboardList, Image, FileText, Activity, MapPin, Layers, Shield } from 'lucide-react';
+import { useApp } from '../context/AppContext';
 import Card from '../components/Card';
 import Button from '../components/Button';
 import StatusBadge from '../components/StatusBadge';
@@ -10,72 +11,102 @@ import QHSSEModule from '../components/QHSSEModule';
 import Modal from '../components/Modal';
 
 // Sub-components (Placeholders for now)
-const RTGOverview = ({ id }) => (
-    <div className="space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <Card title="Current Status">
-                <div className="flex flex-col items-center justify-center py-4">
-                    <StatusBadge status="Painting" />
-                    <p className="mt-4 text-4xl font-bold text-[var(--primary)]">60%</p>
-                    <p className="text-[var(--text-muted)]">Overall Progress</p>
-                </div>
-            </Card>
-            <Card title="Next Step">
-                <div className="flex flex-col items-center justify-center py-4">
-                    <div className="w-16 h-16 rounded-full bg-[var(--bg-glass)] flex items-center justify-center mb-4 border border-[var(--primary)] shadow-[0_0_15px_var(--primary-glow)]">
-                        <Activity className="w-8 h-8 text-[var(--primary)]" />
-                    </div>
-                    <h3 className="text-xl font-bold text-[var(--text-main)]">Layer 2 Application</h3>
-                    <p className="text-[var(--text-muted)] text-center mt-2">Scheduled for Tomorrow</p>
-                </div>
-            </Card>
-            <Card title="Active Team">
-                <div className="space-y-3">
-                    <div className="flex items-center justify-between p-2 rounded bg-[var(--bg-glass)]">
-                        <span className="text-[var(--text-main)]">Team Alpha</span>
-                        <span className="text-xs text-[var(--success)]">On Site</span>
-                    </div>
-                    <div className="flex items-center justify-between p-2 rounded bg-[var(--bg-glass)]">
-                        <span className="text-[var(--text-main)]">Supervisor</span>
-                        <span className="text-xs text-[var(--text-muted)]">Adil T.</span>
-                    </div>
-                </div>
-            </Card>
-        </div>
+const RTGOverview = ({ id }) => {
+    const { getRTGStats } = useApp();
+    const stats = getRTGStats(id);
 
-        <Card title="Recent Activity">
-            <div className="space-y-4">
-                {[1, 2, 3].map((i) => (
-                    <div key={i} className="flex items-start gap-4 pb-4 border-b border-[var(--border-glass)] last:border-0">
+    // Calculate overall progress (simple average for now)
+    // In a real app, this would be weighted
+    const overallProgress = Math.round(
+        (stats.paintingProgress * 0.4) +
+        ((stats.activeWorkOrders === 0 ? 100 : 50) * 0.4) +
+        (stats.corrosionPoints === 0 ? 100 : 80) * 0.2
+    );
+
+    return (
+        <div className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <Card title="Current Status">
+                    <div className="flex flex-col items-center justify-center py-4">
+                        <StatusBadge status={overallProgress === 100 ? 'Completed' : 'In Progress'} />
+                        <p className="mt-4 text-4xl font-bold text-[var(--primary)]">{overallProgress}%</p>
+                        <p className="text-[var(--text-muted)]">Overall Progress</p>
+                    </div>
+                </Card>
+                <Card title="Next Step">
+                    <div className="flex flex-col items-center justify-center py-4">
+                        <div className="w-16 h-16 rounded-full bg-[var(--bg-glass)] flex items-center justify-center mb-4 border border-[var(--primary)] shadow-[0_0_15px_var(--primary-glow)]">
+                            <Activity className="w-8 h-8 text-[var(--primary)]" />
+                        </div>
+                        <h3 className="text-xl font-bold text-[var(--text-main)]">Maintenance</h3>
+                        <p className="text-[var(--text-muted)] text-center mt-2">{stats.activeWorkOrders} Active Tasks</p>
+                    </div>
+                </Card>
+                <Card title="Active Team">
+                    <div className="space-y-3">
+                        <div className="flex items-center justify-between p-2 rounded bg-[var(--bg-glass)]">
+                            <span className="text-[var(--text-main)]">Team Alpha</span>
+                            <span className="text-xs text-[var(--success)]">On Site</span>
+                        </div>
+                        <div className="flex items-center justify-between p-2 rounded bg-[var(--bg-glass)]">
+                            <span className="text-[var(--text-main)]">Supervisor</span>
+                            <span className="text-xs text-[var(--text-muted)]">Adil T.</span>
+                        </div>
+                    </div>
+                </Card>
+            </div>
+
+            <Card title="Recent Activity">
+                <div className="space-y-4">
+                    {/* Real activity would go here, for now we keep the mock or fetch logs */}
+                    <div className="flex items-start gap-4 pb-4 border-b border-[var(--border-glass)] last:border-0">
                         <div className="w-2 h-2 mt-2 rounded-full bg-[var(--primary)]"></div>
                         <div>
-                            <p className="text-[var(--text-main)]">Layer 1 thickness validation completed</p>
-                            <p className="text-xs text-[var(--text-muted)]">2 hours ago by Quality Supervisor</p>
+                            <p className="text-[var(--text-main)]">System updated</p>
+                            <p className="text-xs text-[var(--text-muted)]">Just now</p>
                         </div>
                     </div>
-                ))}
+                </div>
+            </Card>
+        </div>
+    );
+};
+
+const RTGTasks = ({ id, filter }) => {
+    const { workOrders, updateWorkOrder } = useApp();
+    const rtgTasks = workOrders.filter(wo => wo.rtgId === id && (!filter || wo.title === filter));
+
+    const handleStatusToggle = (taskId, currentStatus) => {
+        const newStatus = currentStatus === 'Pending' ? 'In Progress' : currentStatus === 'In Progress' ? 'Completed' : 'Pending';
+        updateWorkOrder(taskId, { status: newStatus });
+    };
+
+    return (
+        <Card title={filter || "Operational Tasks"}>
+            <div className="space-y-4">
+                {rtgTasks.length === 0 ? (
+                    <p className="text-[var(--text-muted)] text-center py-4">No tasks assigned.</p>
+                ) : (
+                    rtgTasks.map((task) => (
+                        <div
+                            key={task.id}
+                            className="flex items-center justify-between p-4 rounded-lg bg-[var(--bg-glass)] border border-[var(--border-glass)] hover:border-[var(--primary)] transition-colors cursor-pointer"
+                            onClick={() => handleStatusToggle(task.id, task.status)}
+                        >
+                            <div className="flex items-center gap-3">
+                                <div className={`w-5 h-5 rounded border flex items-center justify-center ${task.status === 'Completed' ? 'bg-[var(--success)] border-[var(--success)]' : 'border-[var(--text-muted)]'}`}>
+                                    {task.status === 'Completed' && <span className="text-black font-bold">✓</span>}
+                                </div>
+                                <span className={task.status === 'Completed' ? 'text-[var(--text-muted)] line-through' : 'text-[var(--text-main)]'}>{task.title}</span>
+                            </div>
+                            <StatusBadge status={task.status} />
+                        </div>
+                    ))
+                )}
             </div>
         </Card>
-    </div>
-);
-
-const RTGTasks = () => (
-    <Card title="Operational Tasks">
-        <div className="space-y-4">
-            {['Surface Cleaning', 'Salt Test', 'Primer Application', 'Mid-coat Application'].map((task, i) => (
-                <div key={i} className="flex items-center justify-between p-4 rounded-lg bg-[var(--bg-glass)] border border-[var(--border-glass)] hover:border-[var(--primary)] transition-colors">
-                    <div className="flex items-center gap-3">
-                        <div className={`w-5 h-5 rounded border flex items-center justify-center ${i < 2 ? 'bg-[var(--primary)] border-[var(--primary)]' : 'border-[var(--text-muted)]'}`}>
-                            {i < 2 && <span className="text-black font-bold">✓</span>}
-                        </div>
-                        <span className={i < 2 ? 'text-[var(--text-muted)] line-through' : 'text-[var(--text-main)]'}>{task}</span>
-                    </div>
-                    <StatusBadge status={i < 2 ? 'Completed' : i === 2 ? 'In Progress' : 'Pending'} />
-                </div>
-            ))}
-        </div>
-    </Card>
-);
+    );
+};
 
 const RTGPhotos = () => (
     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -94,38 +125,91 @@ const RTGPhotos = () => (
     </div>
 );
 
-const RTGReports = () => (
-    <Card title="Generated Reports">
-        <div className="space-y-2">
-            {['Daily Report - Nov 19', 'Daily Report - Nov 18', 'Surface Prep Validation'].map((report, i) => (
-                <div key={i} className="flex items-center justify-between p-3 rounded hover:bg-[var(--bg-glass)] cursor-pointer transition-colors">
-                    <div className="flex items-center gap-3">
-                        <FileText className="w-5 h-5 text-[var(--secondary)]" />
-                        <span className="text-[var(--text-main)]">{report}</span>
+const RTGReports = () => {
+    const [reports, setReports] = useState([
+        { id: 1, name: 'Daily Report - Nov 19', status: 'Pending Validation' },
+        { id: 2, name: 'Daily Report - Nov 18', status: 'Validated' },
+        { id: 3, name: 'Surface Prep Validation', status: 'Validated' }
+    ]);
+
+    const toggleValidation = (id) => {
+        setReports(reports.map(r => r.id === id ? { ...r, status: r.status === 'Validated' ? 'Pending Validation' : 'Validated' } : r));
+    };
+
+    return (
+        <Card title="Generated Reports">
+            <div className="space-y-2">
+                {reports.map((report) => (
+                    <div key={report.id} className="flex items-center justify-between p-3 rounded hover:bg-[var(--bg-glass)] cursor-pointer transition-colors">
+                        <div className="flex items-center gap-3">
+                            <FileText className="w-5 h-5 text-[var(--secondary)]" />
+                            <div>
+                                <span className="text-[var(--text-main)] block">{report.name}</span>
+                                <span className={`text-xs ${report.status === 'Validated' ? 'text-[var(--success)]' : 'text-[var(--warning)]'}`}>{report.status}</span>
+                            </div>
+                        </div>
+                        <div className="flex gap-2">
+                            <Button variant="ghost" size="sm" onClick={() => toggleValidation(report.id)}>
+                                {report.status === 'Validated' ? 'Invalidate' : 'Validate'}
+                            </Button>
+                            <Button variant="ghost" size="sm">Download</Button>
+                        </div>
                     </div>
-                    <Button variant="ghost" size="sm">Download</Button>
-                </div>
-            ))}
-        </div>
-    </Card>
-);
+                ))}
+            </div>
+        </Card>
+    );
+};
 
 const RTGDetails = () => {
     const { id } = useParams();
+    const { addWorkOrder } = useApp();
     const [activeTab, setActiveTab] = useState('overview');
     const navigate = useNavigate();
 
     const tabs = [
-        { id: 'overview', label: 'Overview', icon: Activity },
-        { id: 'tasks', label: 'Tasks', icon: ClipboardList },
-        { id: 'corrosion', label: 'Corrosion Map', icon: MapPin },
-        { id: 'painting', label: 'Painting & Prep', icon: Layers },
-        { id: 'qhsse', label: 'QHSSE & Waste', icon: Shield },
-        { id: 'photos', label: 'Photos', icon: Image },
-        { id: 'reports', label: 'Reports', icon: FileText },
+        { id: 'overview', label: 'Vue Détaillée', icon: Activity },
+        { id: 'lavage', label: 'Lavage Industriel', icon: ClipboardList },
+        { id: 'corrosion', label: 'Inspection Corrosion', icon: MapPin },
+        { id: 'sablage', label: 'Sablage SA 2.5', icon: Layers }, // Using Layers icon for sandblasting too for now
+        { id: 'painting', label: 'Peinture PPG', icon: Layers },
+        { id: 'qhsse', label: 'Checklist QHSE', icon: Shield },
+        { id: 'reports', label: 'Rapports PDF', icon: FileText },
     ];
 
     const [isModalOpen, setIsModalOpen] = useState(false);
+
+    // Form State
+    const [deadline, setDeadline] = useState('');
+    const [scope, setScope] = useState('');
+    const [safetyConstraints, setSafetyConstraints] = useState({
+        workAtHeight: false,
+        confinedSpace: false
+    });
+
+    const handleCreateOT = (e) => {
+        e.preventDefault();
+
+        const newOT = {
+            id: Date.now(), // Simple ID generation
+            rtgId: id,
+            title: scope.length > 30 ? scope.substring(0, 30) + '...' : scope,
+            status: 'Pending',
+            priority: 'Normal',
+            deadline: deadline,
+            description: scope,
+            safety: safetyConstraints,
+            assignedTo: null // To be assigned
+        };
+
+        addWorkOrder(newOT);
+
+        // Reset and close
+        setDeadline('');
+        setScope('');
+        setSafetyConstraints({ workAtHeight: false, confinedSpace: false });
+        setIsModalOpen(false);
+    };
 
     return (
         <div className="space-y-6">
@@ -163,16 +247,16 @@ const RTGDetails = () => {
             {/* Tab Content */}
             <div className="animate-fade-in">
                 {activeTab === 'overview' && <RTGOverview id={id} />}
-                {activeTab === 'tasks' && <RTGTasks />}
-                {activeTab === 'corrosion' && <CorrosionMap onSave={(data) => console.log('Saved:', data)} />}
+                {activeTab === 'lavage' && <RTGTasks id={id} filter="Lavage Industriel" />}
+                {activeTab === 'corrosion' && <CorrosionMap rtgId={id} onSave={(data) => console.log('Saved:', data)} />}
+                {activeTab === 'sablage' && <RTGTasks id={id} filter="Sablage SA 2.5" />}
                 {activeTab === 'painting' && (
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        <PaintingTracker type="exterior" />
-                        <PaintingTracker type="interior" />
+                        <PaintingTracker rtgId={id} type="exterior" />
+                        <PaintingTracker rtgId={id} type="interior" />
                     </div>
                 )}
-                {activeTab === 'qhsse' && <QHSSEModule />}
-                {activeTab === 'photos' && <RTGPhotos />}
+                {activeTab === 'qhsse' && <QHSSEModule rtgId={id} />}
                 {activeTab === 'reports' && <RTGReports />}
             </div>
 
@@ -186,30 +270,51 @@ const RTGDetails = () => {
                         </div>
                         <div>
                             <label className="block mb-2 text-sm font-medium text-[var(--text-muted)]">Deadline</label>
-                            <input type="date" className="w-full p-2.5 rounded-lg bg-[var(--bg-dark)] border border-[var(--border-glass)] text-[var(--text-main)] focus:border-[var(--primary)] focus:outline-none" />
+                            <input
+                                type="date"
+                                value={deadline}
+                                onChange={(e) => setDeadline(e.target.value)}
+                                className="w-full p-2.5 rounded-lg bg-[var(--bg-dark)] border border-[var(--border-glass)] text-[var(--text-main)] focus:border-[var(--primary)] focus:outline-none"
+                            />
                         </div>
                     </div>
 
                     <div>
                         <label className="block mb-2 text-sm font-medium text-[var(--text-muted)]">Scope of Work</label>
-                        <textarea rows="4" className="w-full p-2.5 rounded-lg bg-[var(--bg-dark)] border border-[var(--border-glass)] text-[var(--text-main)] focus:border-[var(--primary)] focus:outline-none" placeholder="Describe the tasks..."></textarea>
+                        <textarea
+                            rows="4"
+                            value={scope}
+                            onChange={(e) => setScope(e.target.value)}
+                            className="w-full p-2.5 rounded-lg bg-[var(--bg-dark)] border border-[var(--border-glass)] text-[var(--text-main)] focus:border-[var(--primary)] focus:outline-none"
+                            placeholder="Describe the tasks..."
+                        ></textarea>
                     </div>
 
                     <div>
                         <label className="block mb-2 text-sm font-medium text-[var(--text-muted)]">Safety Constraints</label>
                         <div className="flex gap-4">
                             <label className="flex items-center gap-2 text-[var(--text-muted)]">
-                                <input type="checkbox" className="accent-[var(--primary)]" /> Work at Height
+                                <input
+                                    type="checkbox"
+                                    checked={safetyConstraints.workAtHeight}
+                                    onChange={(e) => setSafetyConstraints({ ...safetyConstraints, workAtHeight: e.target.checked })}
+                                    className="accent-[var(--primary)]"
+                                /> Work at Height
                             </label>
                             <label className="flex items-center gap-2 text-[var(--text-muted)]">
-                                <input type="checkbox" className="accent-[var(--primary)]" /> Confined Space
+                                <input
+                                    type="checkbox"
+                                    checked={safetyConstraints.confinedSpace}
+                                    onChange={(e) => setSafetyConstraints({ ...safetyConstraints, confinedSpace: e.target.checked })}
+                                    className="accent-[var(--primary)]"
+                                /> Confined Space
                             </label>
                         </div>
                     </div>
 
                     <div className="flex justify-end gap-3 mt-6">
                         <Button variant="ghost" onClick={(e) => { e.preventDefault(); setIsModalOpen(false); }}>Cancel</Button>
-                        <Button variant="primary" onClick={(e) => { e.preventDefault(); setIsModalOpen(false); }}>Create OT</Button>
+                        <Button variant="primary" onClick={handleCreateOT}>Create OT</Button>
                     </div>
                 </form>
             </Modal>
