@@ -10,6 +10,7 @@ import RTGView from './pages/RTGView';
 import Settings from './pages/Settings';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import UserManagement from './pages/UserManagement';
 import ErrorBoundary from './components/ErrorBoundary';
 import ProtectedRoute from './components/ProtectedRoute';
 
@@ -46,6 +47,13 @@ function App() {
                                             <ErrorBoundary>
                                                 <Settings />
                                             </ErrorBoundary>
+                                        </Layout>
+                                    </ProtectedRoute>
+                                } />
+                                <Route path="/users" element={
+                                    <ProtectedRoute requireAdmin>
+                                        <Layout>
+                                            <UserManagement />
                                         </Layout>
                                     </ProtectedRoute>
                                 } />
