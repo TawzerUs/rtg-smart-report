@@ -1,13 +1,20 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Camera, Settings, Shield } from 'lucide-react';
+import { LayoutDashboard, Camera, Settings, Users } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
 const Sidebar = ({ isOpen, toggleSidebar }) => {
+    const { userRole } = useAuth();
+
     const navItems = [
         { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
-        { path: '/admin', label: 'Admin', icon: Shield },
         { path: '/settings', label: 'Settings', icon: Settings },
     ];
+
+    // Add User Management for admins only
+    if (userRole === 'admin') {
+        navItems.splice(1, 0, { path: '/users', label: 'User Management', icon: Users });
+    }
 
     return (
         <aside className={`fixed top-0 left-0 z-40 h-screen transition-transform ${isOpen ? 'translate-x-0' : '-translate-x-full'} sm:translate-x-0 w-64 bg-[#0a0a12] border-r border-[var(--border-glass)]`}>
