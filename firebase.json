@@ -15,5 +15,11 @@
     },
     "firestore": {
         "rules": "firestore.rules"
-    }
+    },
+    "storage": [
+        {
+            "bucket": "yooryka.firebasestorage.app",
+            "rules": "storage.rules"
+        }
+    ]
 }

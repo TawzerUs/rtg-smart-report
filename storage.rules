@@ -1,0 +1,38 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Helper function to check if user is authenticated
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    // Helper function to check file size (max 10MB)
+    function isValidSize() {
+      return request.resource.size < 10 * 1024 * 1024;
+    }
+    
+    // Helper function to check if file is an image
+    function isImage() {
+      return request.resource.contentType.matches('image/.*');
+    }
+    
+    // RTG photos - authenticated users can upload, anyone can read
+    match /rtg-photos/{rtgId}/{allPaths=**} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() && isImage() && isValidSize();
+    }
+    
+    // Report headers - users can upload their own
+    match /report-headers/{userId}/{allPaths=**} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() && request.auth.uid == userId && isImage() && isValidSize();
+    }
+    
+    // User profile photos
+    match /user-photos/{userId}/{allPaths=**} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() && request.auth.uid == userId && isImage() && isValidSize();
+    }
+  }
+}

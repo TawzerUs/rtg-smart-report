@@ -37,13 +37,38 @@ service cloud.firestore {
       allow create, update, delete: if isAdmin();
     }
     
-    // All other collections - adjust as needed for your app
-    match /{document=**} {
-      // Allow read for all authenticated users
+    // RTGs collection
+    match /rtgs/{rtgId} {
       allow read: if isSignedIn();
-      
-      // Allow write for operators and admins
-      allow write: if isOperator();
+      allow create, update: if isOperator();
+      allow delete: if isAdmin();
+    }
+    
+    // Work Orders collection
+    match /workOrders/{orderId} {
+      allow read: if isSignedIn();
+      allow create, update: if isOperator();
+      allow delete: if isAdmin();
+    }
+    
+    // Inspections collection
+    match /inspections/{inspectionId} {
+      allow read: if isSignedIn();
+      allow create, update: if isOperator();
+      allow delete: if isAdmin();
+    }
+    
+    // Reports collection
+    match /reports/{reportId} {
+      allow read: if isSignedIn();
+      allow create: if isOperator();
+      allow delete: if isAdmin();
+    }
+    
+    // Zones collection
+    match /zones/{zoneId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if isOperator();
     }
   }
 }

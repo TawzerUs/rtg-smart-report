@@ -1,11 +1,14 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { getDemoState } from '../utils/demoData';
+import { useAuth } from './AuthContext';
+import { subscribeToRTGs, subscribeToWorkOrders } from '../services/firestore';
 
 const ProjectContext = createContext();
 
 export const ProjectProvider = ({ children }) => {
     // Theme State
     const [theme, setTheme] = useState('dark');
+    const { user } = useAuth();
 
     // Data State
     const [rtgs, setRtgs] = useState([]);
@@ -14,26 +17,67 @@ export const ProjectProvider = ({ children }) => {
     const [corrosionData, setCorrosionData] = useState([]);
     const [zones, setZones] = useState([]);
     const [users, setUsers] = useState([]);
-    const [headerImage, setHeaderImage] = useState(null); // For report header
-    const [observations, setObservations] = useState({}); // RTG-specific observations
+    const [headerImage, setHeaderImage] = useState(null);
+    const [observations, setObservations] = useState({});
+    const [loading, setLoading] = useState(true);
+    const [useCloud, setUseCloud] = useState(true); // Toggle cloud/local storage
 
-    // Initialize with Demo Data
+    // Initialize with Demo Data or Firestore
     useEffect(() => {
-        const demoData = getDemoState();
-        setRtgs(demoData.rtgs);
-        setWorkOrders(demoData.workOrders);
-        setPaintingData(demoData.paintingData);
-        setCorrosionData(demoData.corrosionData);
-        setZones(demoData.zones);
-        setUsers(demoData.users);
+        if (!user) {
+            // Not logged in - use demo data
+            const demoData = getDemoState();
+            setRtgs(demoData.rtgs);
+            setWorkOrders(demoData.workOrders);
+            setPaintingData(demoData.paintingData);
+            setCorrosionData(demoData.corrosionData);
+            setZones(demoData.zones);
+            setUsers(demoData.users);
+            setLoading(false);
+            return;
+        }
 
-        // Load header image from localStorage if exists
+        // Logged in - use Firestore with real-time sync
+        if (useCloud) {
+            // Subscribe to RTGs
+            const unsubscribeRTGs = subscribeToRTGs((firestoreRTGs) => {
+                setRtgs(firestoreRTGs);
+                // Cache in localStorage
+                localStorage.setItem('rtgs', JSON.stringify(firestoreRTGs));
+                setLoading(false);
+            });
+
+            // Subscribe to Work Orders (all work orders, not filtered by RTG)
+            const unsubscribeWorkOrders = subscribeToWorkOrders(null, (firestoreWorkOrders) => {
+                setWorkOrders(firestoreWorkOrders);
+                // Cache in localStorage
+                localStorage.setItem('workOrders', JSON.stringify(firestoreWorkOrders));
+            });
+
+            // Cleanup subscriptions
+            return () => {
+                unsubscribeRTGs();
+                unsubscribeWorkOrders();
+            };
+        } else {
+            // Fallback to localStorage
+            const cachedRTGs = localStorage.getItem('rtgs');
+            const cachedWorkOrders = localStorage.getItem('workOrders');
+
+            if (cachedRTGs) setRtgs(JSON.parse(cachedRTGs));
+            if (cachedWorkOrders) setWorkOrders(JSON.parse(cachedWorkOrders));
+
+            setLoading(false);
+        }
+    }, [user, useCloud]);
+
+    // Load header image and observations from localStorage
+    useEffect(() => {
         const savedHeader = localStorage.getItem('reportHeaderImage');
         if (savedHeader) {
             setHeaderImage(savedHeader);
         }
 
-        // Load observations from localStorage
         const savedObservations = localStorage.getItem('reportObservations');
         if (savedObservations) {
             setObservations(JSON.parse(savedObservations));
@@ -63,13 +107,17 @@ export const ProjectProvider = ({ children }) => {
         users,
         headerImage,
         observations,
+        loading,
+        useCloud,
         getRTGProgress,
-        // Add setters as needed for modules
+        // Setters
+        setRtgs,
         setWorkOrders,
         setPaintingData,
         setCorrosionData,
         setHeaderImage,
-        setObservations
+        setObservations,
+        setUseCloud,
     };
 
     return (
