@@ -3,34 +3,58 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { ProjectProvider } from './context/ProjectContext';
 import { TutorialProvider } from './context/TutorialContext';
 import { AppProvider } from './context/AppContext';
+import { AuthProvider } from './context/AuthContext';
 import Layout from './layouts/Layout';
 import Dashboard from './pages/Dashboard';
 import RTGView from './pages/RTGView';
 import Settings from './pages/Settings';
+import Login from './pages/Login';
+import Register from './pages/Register';
 import ErrorBoundary from './components/ErrorBoundary';
+import ProtectedRoute from './components/ProtectedRoute';
 
 function App() {
     return (
-        <ProjectProvider>
-            <AppProvider>
-                <TutorialProvider>
-                    <Router>
-                        <Layout>
+        <AuthProvider>
+            <ProjectProvider>
+                <AppProvider>
+                    <TutorialProvider>
+                        <Router>
                             <Routes>
-                                <Route path="/" element={<Dashboard />} />
-                                <Route path="/rtg/:id" element={<RTGView />} />
-                                <Route path="/settings" element={
-                                    <ErrorBoundary>
-                                        <Settings />
-                                    </ErrorBoundary>
+                                {/* Public routes */}
+                                <Route path="/login" element={<Login />} />
+                                <Route path="/register" element={<Register />} />
+
+                                {/* Protected routes */}
+                                <Route path="/" element={
+                                    <ProtectedRoute>
+                                        <Layout>
+                                            <Dashboard />
+                                        </Layout>
+                                    </ProtectedRoute>
                                 } />
-                                {/* Add other routes as we build modules */}
+                                <Route path="/rtg/:id" element={
+                                    <ProtectedRoute>
+                                        <Layout>
+                                            <RTGView />
+                                        </Layout>
+                                    </ProtectedRoute>
+                                } />
+                                <Route path="/settings" element={
+                                    <ProtectedRoute>
+                                        <Layout>
+                                            <ErrorBoundary>
+                                                <Settings />
+                                            </ErrorBoundary>
+                                        </Layout>
+                                    </ProtectedRoute>
+                                } />
                             </Routes>
-                        </Layout>
-                    </Router>
-                </TutorialProvider>
-            </AppProvider>
-        </ProjectProvider>
+                        </Router>
+                    </TutorialProvider>
+                </AppProvider>
+            </ProjectProvider>
+        </AuthProvider>
     );
 }
 

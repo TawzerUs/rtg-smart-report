@@ -4,10 +4,12 @@ import Card from '../components/Card';
 import Button from '../components/Button';
 import { useApp } from '../context/AppContext';
 import { useProject } from '../context/ProjectContext';
+import { useAuth } from '../context/AuthContext';
 
 const Settings = () => {
     const { theme, toggleTheme } = useApp();
     const { headerImage, setHeaderImage } = useProject();
+    const { user, userRole } = useAuth();
     const fileInputRef = useRef(null);
 
     const handleUploadClick = () => {
@@ -34,6 +36,15 @@ const Settings = () => {
         }
     };
 
+    const getRoleName = (role) => {
+        const roleNames = {
+            admin: 'Administrator',
+            operator: 'Operator',
+            viewer: 'Viewer'
+        };
+        return roleNames[role] || 'User';
+    };
+
     return (
         <div className="space-y-6 max-w-4xl mx-auto">
             <h1 className="text-3xl font-bold text-gradient">Settings</h1>
@@ -45,12 +56,11 @@ const Settings = () => {
                         <User className="w-10 h-10 text-white" />
                     </div>
                     <div>
-                        <h3 className="text-xl font-bold text-[var(--text-main)]">Adil Tawzer</h3>
-                        <p className="text-[var(--text-muted)]">Operations Manager</p>
-                        <p className="text-sm text-[var(--text-muted)]">adil.tawzer@eurogate.com</p>
-                    </div>
-                    <div className="ml-auto">
-                        <Button variant="secondary" size="sm">Edit Profile</Button>
+                        <h3 className="text-xl font-bold text-[var(--text-main)]">
+                            {user?.displayName || user?.email?.split('@')[0] || 'User'}
+                        </h3>
+                        <p className="text-[var(--text-muted)]">{getRoleName(userRole)}</p>
+                        <p className="text-sm text-[var(--text-muted)]">{user?.email}</p>
                     </div>
                 </div>
             </Card>

@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "express": "^5.1.0",
+    "firebase": "^12.6.0",
     "jspdf": "^3.0.4",
     "jspdf-autotable": "^5.0.2",
     "lucide-react": "^0.460.0",
