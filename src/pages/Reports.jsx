@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
-import { FileText, Download, Filter, Search, Eye, Edit, X, CheckCircle, Clock, Users, TrendingUp, AlertTriangle, Package } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { FileText, Download, Filter, Search, Eye, Edit, X, CheckCircle, Clock, Users, TrendingUp, AlertTriangle, Package, Calendar } from 'lucide-react';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
-import { useApp } from '../context/AppContext';
+import { useProject } from '../context/ProjectContext';
 import Card from '../components/Card';
 import Button from '../components/Button';
 import StatusBadge from '../components/StatusBadge';
@@ -12,106 +12,112 @@ import ProgressChart from '../components/reports/ProgressChart';
 import SimpleBarChart from '../components/reports/SimpleBarChart';
 
 const Reports = () => {
-    const { rtgs, dailyLogs, workOrders, qhsseData } = useApp();
+    const { rtgs, workOrders, corrosionData, paintingData, coatingControlData, observations, headerImage, zoneImages } = useProject();
     const [selectedReport, setSelectedReport] = useState(null);
 
-    // Generate reports from actual data
+    // Filters State
+    const [searchTerm, setSearchTerm] = useState('');
+    const [filterType, setFilterType] = useState('All');
+    const [filterRtg, setFilterRtg] = useState('All');
+    const [filterDateStart, setFilterDateStart] = useState('');
+    const [filterDateEnd, setFilterDateEnd] = useState('');
+    const [showFilters, setShowFilters] = useState(false);
+
+    // Generate reports from actual Supabase data
     const generateReportsFromLogs = () => {
         const reports = [];
 
-        // Generate daily reports from daily logs
-        dailyLogs.forEach(log => {
-            const rtg = rtgs.find(r => r.id === log.rtgId);
-            reports.push({
-                id: `RPT-${log.id}`,
-                title: 'Daily Progress Report',
-                rtg: rtg?.name || 'Unknown',
-                rtgId: log.rtgId,
-                date: log.date,
-                type: 'Daily',
-                status: 'Generated',
-                data: {
-                    summary: {
-                        tasksCompleted: log.tasksCompleted || 0,
-                        tasksTotal: log.tasksTotal || 0,
-                        hoursWorked: log.hoursWorked || 0,
-                        teamSize: log.teamSize || 0,
-                        efficiency: log.efficiency || 0
-                    },
-                    tasks: log.tasks || [],
-                    materials: log.materials || [],
-                    issues: log.issues || [],
-                    notes: log.notes || log.workDescription || ''
-                }
-            });
-        });
+        // 1. Create a master "Current State" report for each RTG
+        rtgs.forEach(rtg => {
+            // Gather all data for this RTG
+            const rtgTasks = workOrders.filter(wo => wo.rtgId === rtg.id || wo.rtg_id === rtg.id);
+            const rtgCorrosion = corrosionData.filter(c => c.rtgId === rtg.id);
+            const rtgPainting = paintingData.filter(p => p.rtgId === rtg.id);
+            const rtgCoating = coatingControlData.filter(c => c.rtgId === rtg.id);
 
-        // Generate quality reports from work orders
-        workOrders.filter(wo => wo.status === 'Completed').forEach(wo => {
-            const rtg = rtgs.find(r => r.id === wo.rtgId);
-            reports.push({
-                id: `RPT-${wo.id}`,
-                title: 'Work Order Completion Report',
-                rtg: rtg?.name || 'Unknown',
-                rtgId: wo.rtgId,
-                date: wo.deadline || new Date().toISOString().split('T')[0],
-                type: 'Quality',
-                status: 'Signed',
-                data: {
-                    summary: {
-                        inspectionScore: 95,
-                        passedChecks: 19,
-                        totalChecks: 20,
-                        criticalIssues: 0
-                    },
-                    measurements: [
-                        { parameter: 'Work Quality', value: 95, standard: '>90', status: 'Pass' },
-                        { parameter: 'Timeline Adherence', value: 100, standard: '100', status: 'Pass' }
-                    ],
-                    inspector: 'Quality Team',
-                    approved: true,
-                    notes: wo.description || 'Work completed successfully'
-                }
-            });
-        });
+            // Get Lavage Photos from the Lavage task
+            const lavageTask = rtgTasks.find(t => t.title === 'Lavage Industriel');
+            console.log(`[Report Debug] RTG ${rtg.id} Lavage Task:`, lavageTask);
+            const lavagePhotos = lavageTask?.photos || { before: [], after: [] };
+            console.log(`[Report Debug] RTG ${rtg.id} Lavage Photos:`, lavagePhotos);
 
-        // Generate safety reports
-        if (qhsseData.length > 0) {
-            reports.push({
-                id: `RPT-SAFETY-${Date.now()}`,
-                title: 'Weekly Safety Audit',
-                rtg: 'All',
-                date: new Date().toISOString().split('T')[0],
-                type: 'Safety',
-                status: 'Generated',
-                data: {
-                    summary: {
-                        complianceScore: 98,
-                        incidents: qhsseData.filter(q => q.type === 'incident').length,
-                        nearMisses: qhsseData.filter(q => q.type === 'near_miss').length,
-                        safetyTraining: 100
-                    },
-                    compliance: [
-                        { category: 'PPE Usage', score: 100 },
-                        { category: 'Safety Briefings', score: 100 },
-                        { category: 'Equipment Checks', score: 95 },
-                        { category: 'Emergency Procedures', score: 98 }
-                    ],
-                    incidents: [],
-                    recommendations: [
-                        'Continue daily safety briefings',
-                        'Schedule quarterly emergency drill'
-                    ],
-                    auditor: 'Safety Officer',
-                    notes: 'Excellent safety compliance across all units.'
-                }
-            });
-        }
+            // Calculate progress
+            const completedTasks = rtgTasks.filter(t => t.status === 'Completed').length;
+            const totalTasks = Math.max(rtgTasks.length, 1);
+            const progress = Math.round((completedTasks / totalTasks) * 100);
+
+            // Only generate a report if there is some activity
+            if (progress > 0 || rtgCorrosion.length > 0 || rtgPainting.length > 0) {
+                reports.push({
+                    id: `RPT-${String(rtg.id).slice(0, 8).toUpperCase()}-${new Date().toISOString().split('T')[0].replace(/-/g, '')}`,
+                    title: 'Rapport Technique Complet',
+                    rtg: rtg.name,
+                    rtgId: rtg.id,
+                    date: new Date().toISOString().split('T')[0],
+                    type: 'Quality', // Using 'Quality' as the main type for the full technical report
+                    status: progress === 100 ? 'Signed' : 'In Progress',
+                    // This 'data' object matches what ReportTemplate expects
+                    data: {
+                        rtg: rtg,
+                        tasks: rtgTasks,
+                        corrosion: rtgCorrosion,
+                        painting: rtgPainting,
+                        coatingControl: rtgCoating,
+                        lavagePhotos: lavagePhotos,
+                        sablagePhotos: (() => {
+                            const sablageTask = rtgTasks.find(t => t.title === 'Sablage SA 2.5');
+                            // Check for new structure (photos.sablage) or legacy
+                            if (sablageTask?.photos?.sablage) return sablageTask.photos.sablage;
+                            return {};
+                        })(),
+                        sablageData: (() => {
+                            const sablageTask = rtgTasks.find(t => t.title === 'Sablage SA 2.5');
+                            return sablageTask?.zone_data?.sablage || {};
+                        })(),
+                        weather: { temp: 24, humidity: 45 }, // Default or aggregate
+                        observations: observations[rtg.id] || '',
+                        headerImage: headerImage,
+                        zoneImages: zoneImages, // Zone background images for inspection
+
+                        // Keep summary for the card view
+                        summary: {
+                            inspectionScore: 100 - (rtgCorrosion.length * 2), // Mock score logic
+                            passedChecks: completedTasks,
+                            totalChecks: totalTasks,
+                            criticalIssues: rtgCorrosion.filter(c => c.severity === 'High').length,
+                            approved: progress === 100,
+                            inspector: 'Inspector',
+                            notes: 'Rapport généré automatiquement'
+                        }
+                    }
+                });
+            }
+        });
 
         return reports;
     };
 
-    const reports = generateReportsFromLogs();
+    const allReports = generateReportsFromLogs();
+
+    // Filter Logic
+    const filteredReports = useMemo(() => {
+        return allReports.filter(report => {
+            const matchesSearch = report.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                report.id.toLowerCase().includes(searchTerm.toLowerCase());
+            const matchesType = filterType === 'All' || report.type === filterType;
+            const matchesRtg = filterRtg === 'All' || report.rtg === filterRtg;
+
+            let matchesDate = true;
+            if (filterDateStart) {
+                matchesDate = matchesDate && new Date(report.date) >= new Date(filterDateStart);
+            }
+            if (filterDateEnd) {
+                matchesDate = matchesDate && new Date(report.date) <= new Date(filterDateEnd);
+            }
+
+            return matchesSearch && matchesType && matchesRtg && matchesDate;
+        });
+    }, [allReports, searchTerm, filterType, filterRtg, filterDateStart, filterDateEnd]);
 
     const handleViewReport = (report) => {
         setSelectedReport(report);
@@ -128,7 +134,7 @@ const Reports = () => {
         doc.setTextColor(0, 240, 255);
         doc.setFontSize(24);
         doc.setFont(undefined, 'bold');
-        doc.text('RTG Smart Report', 15, 20);
+        doc.text('Spidercord Operations Manager', 15, 20);
 
         doc.setFontSize(10);
         doc.setTextColor(160, 160, 176);
@@ -245,6 +251,34 @@ const Reports = () => {
         }
 
         doc.save(`${report.id}_${report.title.replace(/\s+/g, '_')}.pdf`);
+    };
+
+    const handleExportCSV = () => {
+        if (filteredReports.length === 0) return alert("Aucun rapport à exporter.");
+
+        const headers = ["ID", "Title", "RTG", "Date", "Type", "Status"];
+        const rows = filteredReports.map(r => [
+            r.id,
+            r.title,
+            r.rtg,
+            r.date,
+            r.type,
+            r.status
+        ]);
+
+        const csvContent = [
+            headers.join(','),
+            ...rows.map(row => row.join(','))
+        ].join('\n');
+
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.setAttribute('href', url);
+        link.setAttribute('download', `reports_export_${new Date().toISOString().split('T')[0]}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
     };
 
     const renderReportContent = (report) => {
@@ -403,16 +437,85 @@ const Reports = () => {
                         <input
                             type="text"
                             placeholder="Search reports..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
                             className="pl-10 pr-4 py-2 rounded-lg bg-[var(--bg-glass)] border border-[var(--border-glass)] text-[var(--text-main)] focus:outline-none focus:border-[var(--primary)] w-full md:w-64"
                         />
                     </div>
-                    <Button icon={Filter} variant="secondary">Filter</Button>
+                    <Button icon={Filter} variant={showFilters ? 'primary' : 'secondary'} onClick={() => setShowFilters(!showFilters)}>
+                        Filters
+                    </Button>
+                    <Button icon={Download} variant="secondary" onClick={handleExportCSV}>
+                        Export CSV
+                    </Button>
                 </div>
             </div>
 
-            {reports.length === 0 ? (
+            {/* Filters Panel */}
+            {showFilters && (
+                <Card className="p-4">
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <div>
+                            <label className="block text-sm text-[var(--text-muted)] mb-1">Type</label>
+                            <select
+                                value={filterType}
+                                onChange={(e) => setFilterType(e.target.value)}
+                                className="w-full bg-[var(--bg-dark)] border border-[var(--border-glass)] rounded p-2 text-[var(--text-main)]"
+                            >
+                                <option value="All">All Types</option>
+                                <option value="Daily">Daily Report</option>
+                                <option value="Quality">Quality Report</option>
+                                <option value="Safety">Safety Report</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-sm text-[var(--text-muted)] mb-1">RTG Unit</label>
+                            <select
+                                value={filterRtg}
+                                onChange={(e) => setFilterRtg(e.target.value)}
+                                className="w-full bg-[var(--bg-dark)] border border-[var(--border-glass)] rounded p-2 text-[var(--text-main)]"
+                            >
+                                <option value="All">All Units</option>
+                                {rtgs.map(rtg => (
+                                    <option key={rtg.id} value={rtg.name}>{rtg.name}</option>
+                                ))}
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-sm text-[var(--text-muted)] mb-1">Start Date</label>
+                            <input
+                                type="date"
+                                value={filterDateStart}
+                                onChange={(e) => setFilterDateStart(e.target.value)}
+                                className="w-full bg-[var(--bg-dark)] border border-[var(--border-glass)] rounded p-2 text-[var(--text-main)]"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm text-[var(--text-muted)] mb-1">End Date</label>
+                            <input
+                                type="date"
+                                value={filterDateEnd}
+                                onChange={(e) => setFilterDateEnd(e.target.value)}
+                                className="w-full bg-[var(--bg-dark)] border border-[var(--border-glass)] rounded p-2 text-[var(--text-main)]"
+                            />
+                        </div>
+                    </div>
+                    <div className="flex justify-end mt-4">
+                        <Button variant="ghost" size="sm" onClick={() => {
+                            setFilterType('All');
+                            setFilterRtg('All');
+                            setFilterDateStart('');
+                            setFilterDateEnd('');
+                        }}>
+                            Reset Filters
+                        </Button>
+                    </div>
+                </Card>
+            )}
+
+            {filteredReports.length === 0 ? (
                 <Card className="text-center py-12">
-                    <p className="text-[var(--text-muted)] mb-4">No reports generated yet. Create daily logs to generate reports.</p>
+                    <p className="text-[var(--text-muted)] mb-4">No reports found matching your criteria.</p>
                 </Card>
             ) : (
                 <Card className="p-0 overflow-hidden">
@@ -430,7 +533,7 @@ const Reports = () => {
                                 </tr>
                             </thead>
                             <tbody>
-                                {reports.map((report) => (
+                                {filteredReports.map((report) => (
                                     <tr key={report.id} className="border-b border-[var(--border-glass)] hover:bg-[var(--bg-glass)] transition-colors">
                                         <td className="px-6 py-4 font-medium text-[var(--text-main)]">{report.id}</td>
                                         <td className="px-6 py-4">{report.title}</td>
@@ -438,9 +541,9 @@ const Reports = () => {
                                         <td className="px-6 py-4">{report.date}</td>
                                         <td className="px-6 py-4">
                                             <span className={`px-2 py-1 rounded text-xs ${report.type === 'Daily' ? 'bg-blue-500/20 text-blue-400' :
-                                                    report.type === 'Quality' ? 'bg-purple-500/20 text-purple-400' :
-                                                        report.type === 'Safety' ? 'bg-green-500/20 text-green-400' :
-                                                            'bg-gray-500/20 text-gray-400'
+                                                report.type === 'Quality' ? 'bg-purple-500/20 text-purple-400' :
+                                                    report.type === 'Safety' ? 'bg-green-500/20 text-green-400' :
+                                                        'bg-gray-500/20 text-gray-400'
                                                 }`}>
                                                 {report.type}
                                             </span>

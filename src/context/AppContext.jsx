@@ -44,8 +44,14 @@ export const AppProvider = ({ children }) => {
         });
     };
 
-    // Apply theme to body
+    // Apply theme to HTML element for Tailwind dark mode
     useEffect(() => {
+        if (theme === 'dark') {
+            document.documentElement.classList.add('dark');
+        } else {
+            document.documentElement.classList.remove('dark');
+        }
+        // Also apply to body for backwards compatibility
         document.body.className = theme;
     }, [theme]);
 

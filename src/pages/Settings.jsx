@@ -1,16 +1,27 @@
 import React, { useState, useRef } from 'react';
-import { User, Moon, FileText } from 'lucide-react';
+import { User, Moon, FileText, LogOut } from 'lucide-react';
 import Card from '../components/Card';
 import Button from '../components/Button';
 import { useApp } from '../context/AppContext';
 import { useProject } from '../context/ProjectContext';
 import { useAuth } from '../context/AuthContext';
+import UserManagement from './UserManagement';
 
 const Settings = () => {
     const { theme, toggleTheme } = useApp();
     const { headerImage, setHeaderImage } = useProject();
     const { user, userRole } = useAuth();
     const fileInputRef = useRef(null);
+
+    const handleSignOut = () => {
+        // Clear all auth data
+        localStorage.removeItem('rtg_core_token');
+        localStorage.removeItem('rtg_core_refresh_token');
+        localStorage.removeItem('rtg_core_user');
+
+        // Redirect to login
+        window.location.href = '/login';
+    };
 
     const handleUploadClick = () => {
         fileInputRef.current?.click();
@@ -51,17 +62,27 @@ const Settings = () => {
 
             {/* Profile Section */}
             <Card title="User Profile" icon={User}>
-                <div className="flex items-center gap-6 mb-6">
-                    <div className="w-20 h-20 rounded-full bg-gradient-to-br from-[var(--primary)] to-[var(--secondary)] flex items-center justify-center shadow-[0_0_20px_var(--primary-glow)]">
-                        <User className="w-10 h-10 text-white" />
+                <div className="flex items-center justify-between mb-6">
+                    <div className="flex items-center gap-6">
+                        <div className="w-20 h-20 rounded-full bg-gradient-to-br from-[var(--primary)] to-[var(--secondary)] flex items-center justify-center shadow-[0_0_20px_var(--primary-glow)]">
+                            <User className="w-10 h-10 text-white" />
+                        </div>
+                        <div>
+                            <h3 className="text-xl font-bold text-[var(--text-main)]">
+                                {user?.displayName || user?.email?.split('@')[0] || 'User'}
+                            </h3>
+                            <p className="text-[var(--text-muted)]">{getRoleName(userRole)}</p>
+                            <p className="text-sm text-[var(--text-muted)]">{user?.email}</p>
+                        </div>
                     </div>
-                    <div>
-                        <h3 className="text-xl font-bold text-[var(--text-main)]">
-                            {user?.displayName || user?.email?.split('@')[0] || 'User'}
-                        </h3>
-                        <p className="text-[var(--text-muted)]">{getRoleName(userRole)}</p>
-                        <p className="text-sm text-[var(--text-muted)]">{user?.email}</p>
-                    </div>
+                    <Button
+                        variant="ghost"
+                        icon={LogOut}
+                        onClick={handleSignOut}
+                        className="text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                    >
+                        Sign Out
+                    </Button>
                 </div>
             </Card>
 
@@ -136,6 +157,12 @@ const Settings = () => {
                     </div>
                 </div>
             </Card>
+            {/* User Management - Admin Only */}
+            {userRole === 'admin' && (
+                <div className="pt-6 border-t border-[var(--border-glass)]">
+                    <UserManagement />
+                </div>
+            )}
         </div>
     );
 };

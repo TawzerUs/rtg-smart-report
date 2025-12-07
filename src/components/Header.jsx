@@ -11,7 +11,7 @@ const Header = ({ toggleSidebar }) => {
     const handleSignOut = async () => {
         try {
             await signOut();
-            navigate('/login');
+            navigate('/');
         } catch (error) {
             console.error('Error signing out:', error);
         }
@@ -39,8 +39,31 @@ const Header = ({ toggleSidebar }) => {
                             <span className="sr-only">Open sidebar</span>
                             <Menu className="w-6 h-6" />
                         </button>
-                        <div className="hidden sm:block ml-4">
-                            <span className="text-sm text-[var(--text-muted)]">Operations Follow-up</span>
+                        <div className="hidden sm:flex items-center gap-3 ml-4">
+                            <span className="text-sm text-[var(--text-muted)] border-r border-[var(--border-glass)] pr-3">
+                                Operations Follow-up
+                            </span>
+                            {(() => {
+                                try {
+                                    const client = JSON.parse(localStorage.getItem('selectedClient') || '{}');
+                                    const project = JSON.parse(localStorage.getItem('selectedProject') || '{}');
+                                    if (client.id && project.id) {
+                                        return (
+                                            <button
+                                                onClick={() => navigate(`/projects?client=${client.id}`)}
+                                                className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[var(--bg-glass)] border border-[var(--border-glass)] hover:border-[var(--primary)] text-xs font-medium text-[var(--primary)] transition-all"
+                                                title="Switch Project"
+                                            >
+                                                <span className="opacity-70">{client.name}</span>
+                                                <span className="opacity-40">/</span>
+                                                <span>{project.name}</span>
+                                            </button>
+                                        );
+                                    }
+                                } catch (e) {
+                                    return null;
+                                }
+                            })()}
                         </div>
                     </div>
                     <div className="flex items-center gap-4">

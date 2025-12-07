@@ -115,7 +115,59 @@ export const getDemoState = () => {
         workOrders,
         paintingData,
         corrosionData,
+        coatingControlData: [], // Initialize empty coating control data
         photos: [],
         reports: []
+    };
+};
+
+
+export const generateMockDataForRTGs = (rtgs) => {
+    const paintingData = [];
+    const corrosionData = [];
+    const coatingControlData = [];
+
+    rtgs.forEach((rtg, index) => {
+        // 3. Painting Data (PPG Specs)
+        paintingData.push(
+            {
+                id: `paint-${rtg.id}-ext`,
+                rtgId: rtg.id,
+                type: 'exterior',
+                layers: [
+                    { id: 'l1', name: 'Primaire: PPG SigmaCover', target: 70, unit: 'µm', status: index === 1 ? 'Completed' : 'Pending', actual: index === 1 ? 72 : null, humidity: null },
+                    { id: 'l2', name: 'Intermédiaire: PPG SigmaGuard', target: 150, unit: 'µm', status: index === 1 ? 'Completed' : 'Pending', actual: index === 1 ? 155 : null, humidity: null },
+                    { id: 'l3', name: 'Finale: PPG SigmaDur', target: 60, unit: 'µm', status: index === 1 ? 'Completed' : 'Pending', actual: index === 1 ? 62 : null, humidity: null },
+                ]
+            },
+            {
+                id: `paint-${rtg.id}-int`,
+                rtgId: rtg.id,
+                type: 'interior',
+                layers: [
+                    { id: 'l1', name: 'Primaire: PPG', target: 70, unit: 'µm', status: 'Pending', actual: null, humidity: null },
+                    { id: 'l2', name: 'Finale: PPG', target: 150, unit: 'µm', status: 'Pending', actual: null, humidity: null },
+                ]
+            }
+        );
+
+        // 4. Corrosion Data (Random points)
+        if (index % 2 !== 0) {
+            corrosionData.push({
+                id: `corr-${rtg.id}-${Date.now()}`,
+                rtgId: rtg.id,
+                x: 20 + index * 5,
+                y: 30 + index * 5,
+                severity: index === 2 ? 'High' : 'Medium',
+                notes: `Zone Z0${(index % 6) + 1} corrosion detected`,
+                zone: `Z0${(index % 6) + 1}`
+            });
+        }
+    });
+
+    return {
+        paintingData,
+        corrosionData,
+        coatingControlData
     };
 };

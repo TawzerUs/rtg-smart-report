@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import { Camera, MapPin, X } from 'lucide-react';
 import Button from './Button';
 
-const ImageAnnotator = ({ image, onImageUpload, points, onAddPoint, onPointClick }) => {
+const ImageAnnotator = ({ image, onImageUpload, onDeleteImage, points, onAddPoint, onPointClick }) => {
     const imgRef = useRef(null);
 
     const handleImageClick = (e) => {
@@ -20,7 +20,7 @@ const ImageAnnotator = ({ image, onImageUpload, points, onAddPoint, onPointClick
         if (file) {
             const reader = new FileReader();
             reader.onloadend = () => {
-                onImageUpload(reader.result);
+                onImageUpload(reader.result, file);
             };
             reader.readAsDataURL(file);
         }
@@ -47,8 +47,8 @@ const ImageAnnotator = ({ image, onImageUpload, points, onAddPoint, onPointClick
                                 onPointClick(point);
                             }}
                             className={`absolute w-8 h-8 -ml-4 -mt-4 rounded-full border-2 border-white cursor-pointer transform hover:scale-125 transition-transform flex items-center justify-center shadow-lg group ${point.severity === 'High' ? 'bg-[var(--danger)]' :
-                                    point.severity === 'Medium' ? 'bg-[var(--warning)]' :
-                                        'bg-[var(--success)]'
+                                point.severity === 'Medium' ? 'bg-[var(--warning)]' :
+                                    'bg-[var(--success)]'
                                 }`}
                             style={{ left: `${point.x}%`, top: `${point.y}%` }}
                         >
@@ -61,8 +61,8 @@ const ImageAnnotator = ({ image, onImageUpload, points, onAddPoint, onPointClick
                                     <div className="flex items-center gap-2 mb-1">
                                         <span className="text-[var(--text-muted)]">Sévérité:</span>
                                         <span className={`font-bold ${point.severity === 'High' ? 'text-red-400' :
-                                                point.severity === 'Medium' ? 'text-orange-400' :
-                                                    'text-green-400'
+                                            point.severity === 'Medium' ? 'text-orange-400' :
+                                                'text-green-400'
                                             }`}>
                                             {point.severity === 'High' ? 'Sévère' : point.severity === 'Medium' ? 'Moyen' : 'Léger'}
                                         </span>
@@ -82,13 +82,25 @@ const ImageAnnotator = ({ image, onImageUpload, points, onAddPoint, onPointClick
                         </div>
                     ))}
 
-                    {/* Change Image Button */}
-                    <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                    {/* Image Controls */}
+                    <div className="absolute top-4 right-4 flex gap-2">
                         <label className="cursor-pointer bg-black/50 hover:bg-black/70 text-white p-2 rounded-lg backdrop-blur-sm flex items-center gap-2">
                             <Camera className="w-4 h-4" />
-                            <span className="text-xs">Changer Image</span>
+                            <span className="text-xs">Changer</span>
                             <input type="file" className="hidden" accept="image/*" onChange={handleFileChange} />
                         </label>
+                        {onDeleteImage && (
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (confirm('Supprimer cette image ?')) onDeleteImage();
+                                }}
+                                className="bg-red-600/80 hover:bg-red-700/90 text-white p-2 rounded-lg backdrop-blur-sm flex items-center gap-2"
+                            >
+                                <X className="w-4 h-4" />
+                                <span className="text-xs">Supprimer</span>
+                            </button>
+                        )}
                     </div>
                 </>
             ) : (

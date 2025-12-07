@@ -6,9 +6,12 @@ import Card from '../components/Card';
 import Button from '../components/Button';
 import StatusBadge from '../components/StatusBadge';
 import CorrosionMap from '../components/CorrosionMap';
-import PaintingTracker from '../components/PaintingTracker';
+import PaintingModule from '../components/modules/PaintingModule';
 import QHSSEModule from '../components/QHSSEModule';
+import CoatingControlModule from '../components/modules/CoatingControlModule';
+import ReportModule from '../components/modules/ReportModule';
 import Modal from '../components/Modal';
+import RTGWorkflowGuide from '../components/RTGWorkflowGuide';
 
 // Sub-components (Placeholders for now)
 const RTGOverview = ({ id }) => {
@@ -23,8 +26,17 @@ const RTGOverview = ({ id }) => {
         (stats.corrosionPoints === 0 ? 100 : 80) * 0.2
     );
 
+    // Mock completed modules - in real app, this would come from database
+    const completedModules = ['Lavage']; // Example: Lavage is completed
+
     return (
         <div className="space-y-6">
+            {/* Workflow Guide */}
+            <RTGWorkflowGuide
+                currentModule="Inspection"
+                completedModules={completedModules}
+            />
+
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <Card title="Current Status">
                     <div className="flex flex-col items-center justify-center py-4">
@@ -173,6 +185,7 @@ const RTGDetails = () => {
         { id: 'corrosion', label: 'Inspection Corrosion', icon: MapPin },
         { id: 'sablage', label: 'Sablage SA 2.5', icon: Layers }, // Using Layers icon for sandblasting too for now
         { id: 'painting', label: 'Peinture PPG', icon: Layers },
+        { id: 'coatingControl', label: 'Contrôle Revêtement', icon: Shield },
         { id: 'qhsse', label: 'Checklist QHSE', icon: Shield },
         { id: 'reports', label: 'Rapports PDF', icon: FileText },
     ];
@@ -250,14 +263,10 @@ const RTGDetails = () => {
                 {activeTab === 'lavage' && <RTGTasks id={id} filter="Lavage Industriel" />}
                 {activeTab === 'corrosion' && <CorrosionMap rtgId={id} onSave={(data) => console.log('Saved:', data)} />}
                 {activeTab === 'sablage' && <RTGTasks id={id} filter="Sablage SA 2.5" />}
-                {activeTab === 'painting' && (
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        <PaintingTracker rtgId={id} type="exterior" />
-                        <PaintingTracker rtgId={id} type="interior" />
-                    </div>
-                )}
+                {activeTab === 'painting' && <PaintingModule rtgId={id} />}
+                {activeTab === 'coatingControl' && <CoatingControlModule rtgId={id} />}
                 {activeTab === 'qhsse' && <QHSSEModule rtgId={id} />}
-                {activeTab === 'reports' && <RTGReports />}
+                {activeTab === 'reports' && <ReportModule rtgId={id} />}
             </div>
 
             {/* Create OT Modal */}

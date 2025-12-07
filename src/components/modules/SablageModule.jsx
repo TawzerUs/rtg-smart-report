@@ -3,6 +3,7 @@ import { useProject } from '../../context/ProjectContext';
 import Card from '../Card';
 import Button from '../Button';
 import StatusBadge from '../StatusBadge';
+import CameraImageUpload from '../CameraImageUpload';
 import { Camera, CheckCircle, Ruler } from 'lucide-react';
 
 const SablageModule = ({ rtgId }) => {
@@ -36,6 +37,43 @@ const SablageModule = ({ rtgId }) => {
     const updateChecklist = (zoneId, key) => {
         const currentChecklist = getZoneData(zoneId).checklist;
         updateZoneData(zoneId, 'checklist', { ...currentChecklist, [key]: !currentChecklist[key] });
+    };
+
+    const handleImageAdd = async (imageData) => {
+        try {
+            const { uploadImage } = await import('../../services/supabaseStorage');
+            const { updateWorkOrder } = await import('../../services/supabaseDb');
+
+            const result = await uploadImage(imageData.file, `sablage/${rtgId}/${selectedZone}_${Date.now()}`);
+            const currentPhotos = getZoneData(selectedZone).photos;
+            const newPhotos = [...currentPhotos, result.url];
+            updateZoneData(selectedZone, 'photos', newPhotos);
+
+            // Update DB
+            const currentSablagePhotos = task?.photos?.sablage || {};
+            await updateWorkOrder(task.id, {
+                photos: { ...task.photos, sablage: { ...currentSablagePhotos, [selectedZone]: newPhotos } }
+            });
+        } catch (err) {
+            console.error("Upload failed:", err);
+            alert(`Erreur upload: ${err.message || 'Erreur inconnue'}`);
+        }
+    };
+
+    const handleImageRemove = async (index) => {
+        const currentPhotos = getZoneData(selectedZone).photos;
+        const newPhotos = currentPhotos.filter((_, idx) => idx !== index);
+        updateZoneData(selectedZone, 'photos', newPhotos);
+
+        try {
+            const { updateWorkOrder } = await import('../../services/supabaseDb');
+            const currentSablagePhotos = task?.photos?.sablage || {};
+            await updateWorkOrder(task.id, {
+                photos: { ...task.photos, sablage: { ...currentSablagePhotos, [selectedZone]: newPhotos } }
+            });
+        } catch (err) {
+            console.error("Remove failed:", err);
+        }
     };
 
     if (!task) return <div>Task not initialized</div>;
@@ -77,30 +115,14 @@ const SablageModule = ({ rtgId }) => {
             {/* Main Content */}
             <div className="lg:col-span-2 space-y-6">
                 <Card title={`Préparation de Surface: ${zones.find(z => z.id === selectedZone)?.name}`}>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                        {currentData.photos.map((p, i) => (
-                            <div key={i} className="aspect-square bg-[var(--bg-glass)] rounded-lg overflow-hidden">
-                                <img src={p} alt="Sablage" className="w-full h-full object-cover" />
-                            </div>
-                        ))}
-                        <label className="aspect-square rounded-lg border-2 border-dashed border-[var(--border-glass)] flex flex-col items-center justify-center hover:border-[var(--primary)] hover:text-[var(--primary)] transition-colors text-[var(--text-muted)] cursor-pointer">
-                            <Camera className="w-6 h-6 mb-2" />
-                            <span className="text-xs">Ajouter Photo</span>
-                            <input
-                                type="file"
-                                className="hidden"
-                                accept="image/*"
-                                onChange={(e) => {
-                                    const file = e.target.files[0];
-                                    if (file) {
-                                        const reader = new FileReader();
-                                        reader.onloadend = () => updateZoneData(selectedZone, 'photos', [...currentData.photos, reader.result]);
-                                        reader.readAsDataURL(file);
-                                    }
-                                }}
-                            />
-                        </label>
-                    </div>
+                    <CameraImageUpload
+                        images={currentData.photos.map(url => ({ url }))}
+                        onImageCapture={handleImageAdd}
+                        onImageRemove={handleImageRemove}
+                        multiple={true}
+                        maxImages={10}
+                        label="Capturer Photo Sablage"
+                    />
 
                     <div className="flex items-center gap-4 mb-6">
                         <div className="p-3 bg-[var(--bg-glass)] rounded-lg">

@@ -13,7 +13,7 @@ export const useTutorial = () => {
 const tutorialSteps = [
     {
         id: 1,
-        title: 'Welcome to RTG Smart Report',
+        title: 'Welcome to Spidercord Operations Manager',
         description: 'This tutorial will guide you through the key features of the application.',
         target: null
     },

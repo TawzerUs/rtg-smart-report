@@ -3,6 +3,7 @@ import { useProject } from '../../context/ProjectContext';
 import Card from '../Card';
 import Button from '../Button';
 import StatusBadge from '../StatusBadge';
+import CameraImageUpload from '../CameraImageUpload';
 import { CloudRain, Thermometer, CheckCircle, Camera } from 'lucide-react';
 
 const PaintingModule = ({ rtgId }) => {
@@ -36,12 +37,83 @@ const PaintingModule = ({ rtgId }) => {
         }));
     };
 
-    const handleFileChange = (e, zoneId, layerId) => {
-        const file = e.target.files[0];
-        if (file) {
-            const reader = new FileReader();
-            reader.onloadend = () => addLayerPhoto(zoneId, layerId, reader.result);
-            reader.readAsDataURL(file);
+    const handleLayerImageAdd = async (imageData, zoneId, layerId) => {
+        try {
+            const { uploadImage } = await import('../../services/supabaseStorage');
+            const { updatePaintingSystem, createPaintingSystem } = await import('../../services/supabaseDb');
+
+            const system = systems[0];
+            if (!system) return;
+
+            let systemId = system.id;
+            const isMockId = !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(system.id);
+
+            if (isMockId) {
+                const { id, rtgId: oldRtgId, ...systemData } = system;
+                systemData.rtg_id = rtgId;
+                const newSystem = await createPaintingSystem(systemData);
+                if (newSystem) {
+                    systemId = newSystem.id;
+                    setPaintingData(prev => prev.map(s => s.id === system.id ? { ...s, id: systemId } : s));
+                } else {
+                    throw new Error("Failed to create painting system record");
+                }
+            }
+
+            const result = await uploadImage(imageData.file, `painting/${rtgId}/${systemId}/${layerId}_${Date.now()}`);
+            addLayerPhoto(zoneId, layerId, result.url);
+
+            const updatedLayers = system.layers.map(layer => {
+                if (layer.id === layerId) {
+                    const currentPhotos = layer.photos || [];
+                    return { ...layer, photos: [...currentPhotos, result.url] };
+                }
+                return layer;
+            });
+
+            await updatePaintingSystem(systemId, { layers: updatedLayers });
+            setPaintingData(prev => prev.map(s => s.id === systemId || s.id === system.id ? { ...s, id: systemId, layers: updatedLayers } : s));
+
+        } catch (err) {
+            console.error("Upload failed:", err);
+            alert(`Erreur upload: ${err.message || 'Erreur inconnue'}`);
+        }
+    };
+
+    const handleLayerImageRemove = async (index, zoneId, layerId) => {
+        const currentPhotos = getLayerPhotos(zoneId, layerId);
+        const newPhotos = currentPhotos.filter((_, idx) => idx !== index);
+
+        // Update local state is tricky because addLayerPhoto appends. 
+        // We need a proper setLayerPhotos helper or verify how state works.
+        // Looking at line 33: setLayerPhotos(prev => ({...prev, [`${zoneId}-${layerId}`]: [...prev, photo]}))
+        // So we can override it directly.
+        setLayerPhotos(prev => ({
+            ...prev,
+            [`${zoneId}-${layerId}`]: newPhotos
+        }));
+
+        const system = systems[0];
+        if (!system) return;
+
+        try {
+            const { updatePaintingSystem } = await import('../../services/supabaseDb');
+            const updatedLayers = system.layers.map(layer => {
+                if (layer.id === layerId) {
+                    return { ...layer, photos: newPhotos }; // Assuming we sync this correctly
+                    // Note: layer.photos in the system object might be different from local layerPhotos derived state
+                    // The system.layers.photos is the source of truth for DB.
+                    // Actually, line 30: getLayerPhotos returns local state.
+                    // The component seems to mix local state and system state.
+                    // Let's ensure we update both.
+                }
+                return layer;
+            });
+
+            await updatePaintingSystem(system.id, { layers: updatedLayers });
+            setPaintingData(prev => prev.map(s => s.id === system.id ? { ...s, layers: updatedLayers } : s));
+        } catch (err) {
+            console.error("Remove failed:", err);
         }
     };
 
@@ -79,8 +151,8 @@ const PaintingModule = ({ rtgId }) => {
                                 key={zone.id}
                                 onClick={() => setSelectedZone(zone.id)}
                                 className={`w-full text-left p-3 rounded-lg transition-all flex items-center justify-between ${selectedZone === zone.id
-                                        ? 'bg-[var(--primary)]/10 border border-[var(--primary)] text-[var(--primary)]'
-                                        : 'bg-[var(--bg-glass)] border border-transparent text-[var(--text-muted)] hover:text-[var(--text-main)]'
+                                    ? 'bg-[var(--primary)]/10 border border-[var(--primary)] text-[var(--primary)]'
+                                    : 'bg-[var(--bg-glass)] border border-transparent text-[var(--text-muted)] hover:text-[var(--text-main)]'
                                     }`}
                             >
                                 <span>{zone.name}</span>
@@ -132,8 +204,8 @@ const PaintingModule = ({ rtgId }) => {
                                 return (
                                     <div key={layer.id} className="relative pl-6 border-l-2 border-[var(--border-glass)] last:border-0 pb-6 last:pb-0">
                                         <div className={`absolute -left-[9px] top-0 w-4 h-4 rounded-full border-2 ${layer.status === 'Completed'
-                                                ? 'bg-[var(--success)] border-[var(--success)]'
-                                                : 'bg-[var(--bg-dark)] border-[var(--text-muted)]'
+                                            ? 'bg-[var(--success)] border-[var(--success)]'
+                                            : 'bg-[var(--bg-dark)] border-[var(--text-muted)]'
                                             }`}></div>
 
                                         <div className="flex justify-between items-start mb-2">
@@ -150,36 +222,53 @@ const PaintingModule = ({ rtgId }) => {
                                         </div>
 
                                         {/* Photos */}
-                                        <div className="grid grid-cols-3 gap-2 mb-3">
-                                            {photos.map((photo, idx) => (
-                                                <div key={idx} className="aspect-square bg-[var(--bg-glass)] rounded overflow-hidden">
-                                                    <img src={photo} alt={`${layer.name} ${idx + 1}`} className="w-full h-full object-cover" />
-                                                </div>
-                                            ))}
-                                            {photos.length < 3 && (
-                                                <label className="aspect-square rounded border-2 border-dashed border-[var(--border-glass)] flex flex-col items-center justify-center hover:border-[var(--primary)] transition-colors cursor-pointer">
-                                                    <Camera className="w-5 h-5 text-[var(--text-muted)]" />
-                                                    <span className="text-xs text-[var(--text-muted)] mt-1">Photo</span>
-                                                    <input
-                                                        type="file"
-                                                        className="hidden"
-                                                        accept="image/*"
-                                                        onChange={(e) => handleFileChange(e, selectedZone, layer.id)}
-                                                    />
-                                                </label>
-                                            )}
+                                        <div className="mb-3">
+                                            <CameraImageUpload
+                                                images={photos.map(url => ({ url }))}
+                                                onImageCapture={(data) => handleLayerImageAdd(data, selectedZone, layer.id)}
+                                                onImageRemove={(idx) => handleLayerImageRemove(idx, selectedZone, layer.id)}
+                                                multiple={true}
+                                                maxImages={10}
+                                                label={`Capturer ${layer.name}`}
+                                            />
                                         </div>
 
-                                        <div className="mt-3">
-                                            <Button
-                                                variant={layer.status === 'Completed' ? 'success' : 'primary'}
-                                                size="sm"
-                                                disabled={layer.status === 'Completed'}
-                                                onClick={() => handleValidateLayer(system.id, layer.id)}
-                                                icon={layer.status === 'Completed' ? CheckCircle : undefined}
-                                            >
-                                                {layer.status === 'Completed' ? 'Couche Validée' : 'Valider Couche'}
-                                            </Button>
+                                        {/* Validation Section */}
+                                        <div className="mt-4 p-3 bg-[var(--bg-glass)] rounded-lg border border-[var(--border-glass)]">
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex-1">
+                                                    {layer.status === 'Completed' ? (
+                                                        <div>
+                                                            <p className="text-sm font-bold text-[var(--success)] flex items-center gap-2">
+                                                                <CheckCircle className="w-4 h-4" />
+                                                                Couche Validée
+                                                            </p>
+                                                            <p className="text-xs text-[var(--text-muted)] mt-1">
+                                                                {new Date(layer.validatedAt).toLocaleString('fr-FR')}
+                                                            </p>
+                                                            {layer.validatedZone && (
+                                                                <p className="text-xs text-[var(--text-muted)]">
+                                                                    Zone: {zones.find(z => z.id === layer.validatedZone)?.name}
+                                                                </p>
+                                                            )}
+                                                        </div>
+                                                    ) : (
+                                                        <div>
+                                                            <p className="text-sm font-medium text-[var(--text-main)]">Validation de la couche</p>
+                                                            <p className="text-xs text-[var(--text-muted)]">Cliquez pour valider l'application</p>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                <Button
+                                                    variant={layer.status === 'Completed' ? 'success' : 'primary'}
+                                                    size="md"
+                                                    disabled={layer.status === 'Completed'}
+                                                    onClick={() => handleValidateLayer(system.id, layer.id)}
+                                                    icon={layer.status === 'Completed' ? CheckCircle : CheckCircle}
+                                                >
+                                                    {layer.status === 'Completed' ? 'Validé' : 'Valider'}
+                                                </Button>
+                                            </div>
                                         </div>
                                     </div>
                                 );

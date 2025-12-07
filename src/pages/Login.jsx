@@ -1,15 +1,51 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { Mail, Lock, LogIn } from "lucide-react";
+import { Mail, Lock, LogIn, Trash2 } from "lucide-react";
+import { supabase } from "../lib/supabase";
 
 export default function Login() {
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
-    const { signIn, signInWithGoogle } = useAuth();
+    const [sessionCleared, setSessionCleared] = useState(false);
+    const { signIn, signInWithGoogle, user } = useAuth();
     const navigate = useNavigate();
+
+    // Redirect to dashboard if user is already logged in
+    useEffect(() => {
+        if (user) {
+            console.log('User detected, redirecting to dashboard...');
+            navigate("/", { replace: true });
+        }
+    }, [user, navigate]);
+
+    // Clear any stale session on mount
+    useEffect(() => {
+        const checkSession = async () => {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session) {
+                console.log('Found existing session, clearing it...');
+                await supabase.auth.signOut();
+                setSessionCleared(true);
+            }
+        };
+        checkSession();
+    }, []);
+
+    const handleClearSession = async () => {
+        try {
+            await supabase.auth.signOut();
+            localStorage.clear();
+            sessionStorage.clear();
+            setSessionCleared(true);
+            setError("");
+            alert("Session cleared! You can now log in with new credentials.");
+        } catch (err) {
+            console.error("Error clearing session:", err);
+        }
+    };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -17,11 +53,11 @@ export default function Login() {
         setLoading(true);
 
         try {
+            // Just sign in - the auth state listener will handle everything
             await signIn(email, password);
-            navigate("/");
+            // Don't navigate here - let the useEffect handle it when user state updates
         } catch (err) {
-            setError(err.message || "Failed to sign in");
-        } finally {
+            setError(err.message || "Failed to sign in. Try clearing your session first.");
             setLoading(false);
         }
     };
@@ -41,31 +77,56 @@ export default function Login() {
     };
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 px-4">
-            <div className="max-w-md w-full space-y-8 bg-white dark:bg-gray-800 p-8 rounded-xl shadow-2xl">
+        <div className="min-h-screen flex items-center justify-center px-4" style={{ backgroundColor: '#0a0a12' }}>
+            <div className="max-w-md w-full space-y-8 p-8 rounded-xl shadow-2xl" style={{
+                backgroundColor: 'rgba(15, 23, 42, 0.6)',
+                backdropFilter: 'blur(20px)',
+                border: '1px solid rgba(0, 240, 255, 0.1)',
+                boxShadow: '0 0 40px rgba(0, 240, 255, 0.1)'
+            }}>
                 <div className="text-center">
-                    <h2 className="text-3xl font-bold text-gray-900 dark:text-white">
-                        RTG Smart Report
+                    <h2 className="text-3xl font-bold text-gradient mb-2">
+                        Spidercord Operations Manager
                     </h2>
-                    <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+                    <p className="mt-2 text-sm" style={{ color: 'var(--text-muted, #94a3b8)' }}>
                         Sign in to your account
                     </p>
                 </div>
 
+                {sessionCleared && (
+                    <div className="px-4 py-3 rounded-lg" style={{
+                        backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                        border: '1px solid rgba(34, 197, 94, 0.3)',
+                        color: '#86efac'
+                    }}>
+                        ✅ Session cleared! You can now log in.
+                    </div>
+                )}
+
                 {error && (
-                    <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 px-4 py-3 rounded-lg">
+                    <div className="px-4 py-3 rounded-lg" style={{
+                        backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                        border: '1px solid rgba(239, 68, 68, 0.3)',
+                        color: '#fca5a5'
+                    }}>
                         {error}
+                        <button
+                            onClick={handleClearSession}
+                            className="ml-2 underline hover:no-underline"
+                        >
+                            Clear Session
+                        </button>
                     </div>
                 )}
 
                 <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
                     <div className="space-y-4">
                         <div>
-                            <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            <label htmlFor="email" className="block text-sm font-medium mb-1" style={{ color: 'var(--text-main, #f1f5f9)' }}>
                                 Email address
                             </label>
                             <div className="relative">
-                                <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                                <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5" style={{ color: 'var(--text-muted, #94a3b8)' }} />
                                 <input
                                     id="email"
                                     name="email"
@@ -73,18 +134,24 @@ export default function Login() {
                                     required
                                     value={email}
                                     onChange={(e) => setEmail(e.target.value)}
-                                    className="pl-10 w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                                    className="pl-10 w-full px-4 py-2 rounded-lg focus:ring-2 focus:border-transparent"
+                                    style={{
+                                        backgroundColor: 'rgba(30, 41, 59, 0.5)',
+                                        border: '1px solid rgba(148, 163, 184, 0.2)',
+                                        color: '#f1f5f9',
+                                        outline: 'none'
+                                    }}
                                     placeholder="you@example.com"
                                 />
                             </div>
                         </div>
 
                         <div>
-                            <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            <label htmlFor="password" className="block text-sm font-medium mb-1" style={{ color: 'var(--text-main, #f1f5f9)' }}>
                                 Password
                             </label>
                             <div className="relative">
-                                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5" style={{ color: 'var(--text-muted, #94a3b8)' }} />
                                 <input
                                     id="password"
                                     name="password"
@@ -92,7 +159,13 @@ export default function Login() {
                                     required
                                     value={password}
                                     onChange={(e) => setPassword(e.target.value)}
-                                    className="pl-10 w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                                    className="pl-10 w-full px-4 py-2 rounded-lg focus:ring-2 focus:border-transparent"
+                                    style={{
+                                        backgroundColor: 'rgba(30, 41, 59, 0.5)',
+                                        border: '1px solid rgba(148, 163, 184, 0.2)',
+                                        color: '#f1f5f9',
+                                        outline: 'none'
+                                    }}
                                     placeholder="••••••••"
                                 />
                             </div>
@@ -102,7 +175,13 @@ export default function Login() {
                     <button
                         type="submit"
                         disabled={loading}
-                        className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="w-full flex items-center justify-center gap-2 px-4 py-3 font-medium rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                        style={{
+                            background: 'linear-gradient(135deg, var(--primary, #00f0ff), var(--secondary, #a855f7))',
+                            color: '#ffffff',
+                            boxShadow: '0 0 20px rgba(0, 240, 255, 0.3)',
+                            border: 'none'
+                        }}
                     >
                         <LogIn className="w-5 h-5" />
                         {loading ? "Signing in..." : "Sign in"}
@@ -111,17 +190,24 @@ export default function Login() {
 
                 <div className="relative">
                     <div className="absolute inset-0 flex items-center">
-                        <div className="w-full border-t border-gray-300 dark:border-gray-600"></div>
+                        <div className="w-full" style={{ borderTop: '1px solid rgba(148, 163, 184, 0.2)' }}></div>
                     </div>
                     <div className="relative flex justify-center text-sm">
-                        <span className="px-2 bg-white dark:bg-gray-800 text-gray-500">Or continue with</span>
+                        <span className="px-2" style={{ backgroundColor: 'rgba(15, 23, 42, 0.6)', color: 'var(--text-muted, #94a3b8)' }}>
+                            Or continue with
+                        </span>
                     </div>
                 </div>
 
                 <button
                     onClick={handleGoogleSignIn}
                     disabled={loading}
-                    className="w-full flex items-center justify-center gap-3 px-4 py-3 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full flex items-center justify-center gap-3 px-4 py-3 font-medium rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    style={{
+                        border: '1px solid rgba(148, 163, 184, 0.2)',
+                        backgroundColor: 'rgba(30, 41, 59, 0.3)',
+                        color: 'var(--text-main, #f1f5f9)'
+                    }}
                 >
                     <svg className="w-5 h-5" viewBox="0 0 24 24">
                         <path
@@ -144,12 +230,25 @@ export default function Login() {
                     Sign in with Google
                 </button>
 
-                <p className="text-center text-sm text-gray-600 dark:text-gray-400">
+                <p className="text-center text-sm" style={{ color: 'var(--text-muted, #94a3b8)' }}>
                     Don't have an account?{" "}
-                    <Link to="/register" className="font-medium text-blue-600 hover:text-blue-500">
+                    <Link to="/register" className="font-medium" style={{ color: 'var(--primary, #00f0ff)' }}>
                         Sign up
                     </Link>
                 </p>
+
+                <button
+                    onClick={handleClearSession}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-2 text-sm rounded-lg transition-all"
+                    style={{
+                        border: '1px solid rgba(239, 68, 68, 0.3)',
+                        backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                        color: '#fca5a5'
+                    }}
+                >
+                    <Trash2 className="w-4 h-4" />
+                    Clear Session (if login fails)
+                </button>
             </div>
         </div>
     );

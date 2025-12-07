@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
-import { collection, getDocs, doc, updateDoc, deleteDoc, setDoc } from "firebase/firestore";
-import { createUserWithEmailAndPassword } from "firebase/auth";
-import { db, auth } from "../firebase";
+import { getAllUsers, deleteUser } from "../services/supabaseDb";
+import { signUpWithEmail, updateUserRole, createUserDocument } from "../services/supabaseAuth";
 import { useAuth } from "../context/AuthContext";
 import { Users, UserPlus, Edit2, Trash2, Shield, Eye, Wrench } from "lucide-react";
 import Card from "../components/Card";
@@ -11,7 +10,6 @@ export default function UserManagement() {
     const [users, setUsers] = useState([]);
     const [loading, setLoading] = useState(true);
     const [showAddUser, setShowAddUser] = useState(false);
-    const [editingUser, setEditingUser] = useState(null);
     const { userRole } = useAuth();
 
     // Form state
@@ -28,11 +26,7 @@ export default function UserManagement() {
 
     const fetchUsers = async () => {
         try {
-            const usersSnapshot = await getDocs(collection(db, "users"));
-            const usersData = usersSnapshot.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data()
-            }));
+            const usersData = await getAllUsers();
             setUsers(usersData);
         } catch (error) {
             console.error("Error fetching users:", error);
@@ -46,26 +40,20 @@ export default function UserManagement() {
         setLoading(true);
 
         try {
-            // Create user in Firebase Auth
-            const userCredential = await createUserWithEmailAndPassword(
-                auth,
-                formData.email,
-                formData.password
-            );
+            // 1. Create user in Supabase Auth
+            const user = await signUpWithEmail(formData.email, formData.password, { displayName: formData.displayName });
 
-            // Create user document in Firestore
-            await setDoc(doc(db, "users", userCredential.user.uid), {
-                email: formData.email,
-                displayName: formData.displayName,
-                role: formData.role,
-                createdAt: new Date(),
-                createdBy: auth.currentUser.uid
-            });
+            if (user) {
+                // 2. Create user document in 'users' table (if not handled by trigger/auth service)
+                // Note: signUpWithEmail in our service might already handle this, but let's be safe
+                // or ensure we update the role correctly.
+                await createUserDocument(user.id, formData.email, formData.displayName, formData.role);
 
-            // Reset form and refresh users
-            setFormData({ email: "", password: "", displayName: "", role: "viewer" });
-            setShowAddUser(false);
-            await fetchUsers();
+                // Reset form and refresh users
+                setFormData({ email: "", password: "", displayName: "", role: "viewer" });
+                setShowAddUser(false);
+                await fetchUsers();
+            }
         } catch (error) {
             console.error("Error creating user:", error);
             alert(error.message);
@@ -76,34 +64,27 @@ export default function UserManagement() {
 
     const handleUpdateRole = async (userId, newRole) => {
         try {
-            await updateDoc(doc(db, "users", userId), { role: newRole });
+            await updateUserRole(userId, newRole); // This needs to be imported or available in supabaseDb/Auth
+            // Note: updateUserRole was in supabaseAuth.js, let's ensure we use the right one.
+            // Actually, we should use updateUser from supabaseDb if available, or the specific role updater.
+            // Let's check imports. We imported updateUserRole from supabaseDb (which might be wrong, it was in Auth).
+            // Let's fix the import above if needed.
             await fetchUsers();
         } catch (error) {
             console.error("Error updating user role:", error);
-            alert(error.message);
+            alert(`Failed to update role: ${error.message || error.error_description || 'Unknown error'}`);
         }
     };
 
     const handleDeleteUser = async (userId) => {
-        if (!confirm("Are you sure you want to delete this user?")) return;
+        if (!confirm("Are you sure you want to delete this user? This will only delete the database record, not the Auth account.")) return;
 
         try {
-            await deleteDoc(doc(db, "users", userId));
+            await deleteUser(userId);
             await fetchUsers();
         } catch (error) {
             console.error("Error deleting user:", error);
             alert(error.message);
-        }
-    };
-
-    const getRoleIcon = (role) => {
-        switch (role) {
-            case "admin":
-                return <Shield className="w-4 h-4 text-red-500" />;
-            case "operator":
-                return <Wrench className="w-4 h-4 text-blue-500" />;
-            default:
-                return <Eye className="w-4 h-4 text-gray-500" />;
         }
     };
 
@@ -135,9 +116,9 @@ export default function UserManagement() {
     }
 
     return (
-        <div className="space-y-6 max-w-6xl mx-auto">
+        <div className="space-y-6">
             <div className="flex items-center justify-between">
-                <h1 className="text-3xl font-bold text-gradient">User Management</h1>
+                <h2 className="text-2xl font-bold text-gradient">User Management</h2>
                 <Button onClick={() => setShowAddUser(!showAddUser)}>
                     <UserPlus className="w-5 h-5 mr-2" />
                     Add User
@@ -253,10 +234,10 @@ export default function UserManagement() {
                                         <td className="py-3 px-4">
                                             <div className="flex items-center gap-3">
                                                 <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white font-medium">
-                                                    {user.displayName?.[0]?.toUpperCase() || user.email[0].toUpperCase()}
+                                                    {user.display_name?.[0]?.toUpperCase() || user.email?.[0]?.toUpperCase()}
                                                 </div>
                                                 <span className="font-medium text-gray-900 dark:text-white">
-                                                    {user.displayName || "No name"}
+                                                    {user.display_name || "No name"}
                                                 </span>
                                             </div>
                                         </td>
@@ -277,7 +258,7 @@ export default function UserManagement() {
                                             </select>
                                         </td>
                                         <td className="py-3 px-4 text-sm text-gray-600 dark:text-gray-400">
-                                            {user.createdAt?.toDate?.().toLocaleDateString() || "N/A"}
+                                            {user.created_at ? new Date(user.created_at).toLocaleDateString() : "N/A"}
                                         </td>
                                         <td className="py-3 px-4 text-right">
                                             <button

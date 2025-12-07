@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 100">
+  <rect width="300" height="100" fill="#D22027"/>
+  <text x="150" y="65" dominant-baseline="middle" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-weight="bold" font-size="48">EUROGATE</text>
+  <path d="M20 20 L50 50 L20 80" fill="none" stroke="white" stroke-width="5" opacity="0.5"/>
+</svg>

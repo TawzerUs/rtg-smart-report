@@ -4,18 +4,24 @@ import { useAuth } from "../context/AuthContext";
 export default function ProtectedRoute({ children, requireAdmin = false, requireOperator = false }) {
     const { user, userRole, loading } = useAuth();
 
+    // Show loading spinner while checking auth
     if (loading) {
         return (
-            <div className="min-h-screen flex items-center justify-center">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+            <div className="min-h-screen flex items-center justify-center bg-[var(--bg-dark)]">
+                <div className="text-center">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 mx-auto mb-4" style={{ borderColor: 'var(--primary)' }}></div>
+                    <p style={{ color: 'var(--text-muted)' }}>Loading...</p>
+                </div>
             </div>
         );
     }
 
+    // Redirect to login if not authenticated
     if (!user) {
         return <Navigate to="/login" replace />;
     }
 
+    // Check role requirements
     if (requireAdmin && userRole !== "admin") {
         return (
             <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
@@ -60,3 +66,4 @@ export default function ProtectedRoute({ children, requireAdmin = false, require
 
     return children;
 }
+

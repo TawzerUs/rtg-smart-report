@@ -46,7 +46,7 @@ export default function Register() {
                         Create Account
                     </h2>
                     <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-                        Sign up for RTG Smart Report
+                        Sign up for Spidercord Operations Manager
                     </p>
                 </div>
 

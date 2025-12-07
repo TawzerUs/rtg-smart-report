@@ -4,24 +4,101 @@ import Card from '../Card';
 import Button from '../Button';
 import ImageAnnotator from '../ImageAnnotator';
 import Modal from '../Modal';
-import { AlertTriangle, Trash2, Save } from 'lucide-react';
+import Tooltip from '../Tooltip';
+import CameraImageUpload from '../CameraImageUpload';
+import { Camera, CheckCircle, Trash2, Plus, AlertTriangle, Info, Save, Image as ImageIcon } from 'lucide-react';
 
 const InspectionModule = ({ rtgId }) => {
-    const { zones, corrosionData, setCorrosionData } = useProject();
+    const { zones, corrosionData, setCorrosionData, zoneImages, setZoneImages } = useProject();
     const [selectedZone, setSelectedZone] = useState(zones[0].id);
 
-    // Local state for zone images (in a real app, this would be in global state or DB)
-    const [zoneImages, setZoneImages] = useState({});
+    // Multiple images per zone: { zoneId: [{ id, url, timestamp }] }
+    const [zoneImageGallery, setZoneImageGallery] = useState({});
+    const [selectedImageId, setSelectedImageId] = useState(null);
 
     // Modal State
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingPoint, setEditingPoint] = useState(null);
+    const [validationError, setValidationError] = useState(null);
 
     // Filter data for this RTG and Zone
     const zonePoints = corrosionData.filter(c => c.rtgId === rtgId && c.zone === selectedZone);
 
-    const handleImageUpload = (imageData) => {
+    // Get images for current zone
+    const currentZoneImages = zoneImageGallery[selectedZone] || [];
+    const selectedImage = currentZoneImages.find(img => img.id === selectedImageId) || currentZoneImages[0];
+
+    const handleImageUpload = async (imageData, file) => {
+        // Optimistic update for immediate feedback
         setZoneImages(prev => ({ ...prev, [selectedZone]: imageData }));
+
+        if (!file) return;
+
+        try {
+            // Upload to Supabase
+            const { uploadImage } = await import('../../services/supabaseStorage');
+            // Update DB (Save to inspections table instead of zones)
+            const { saveCorrosionPoints } = await import('../../services/supabaseDb');
+
+            // Upload the image and get the URL
+            const result = await uploadImage(file, `inspections/${rtgId}/${selectedZone}_${Date.now()}`);
+
+            // Get current validation status
+            const currentValidation = zones.find(z => z.id === selectedZone)?.validated_at;
+
+            // Construct full zone data object
+            const newZoneData = {
+                points: zonePoints,
+                imageUrl: result.url,
+                validated_at: currentValidation
+            };
+
+            await saveCorrosionPoints(rtgId, selectedZone, newZoneData);
+
+            // Confirm URL update (in case optimistic was base64)
+            setZoneImages(prev => ({ ...prev, [selectedZone]: result.url }));
+
+        } catch (err) {
+            console.error("Upload failed details:", err);
+            alert(`Erreur lors de l'upload de l'image: ${err.message || 'Erreur inconnue'}`);
+            // Revert optimistic update on failure
+            setZoneImages(prev => {
+                const next = { ...prev };
+                delete next[selectedZone];
+                return next;
+            });
+        }
+    };
+
+    const handleImageDelete = async () => {
+        try {
+            const { deleteImageByUrl } = await import('../../services/supabaseStorage');
+            const { saveCorrosionPoints } = await import('../../services/supabaseDb');
+
+            // Get current validation status
+            const currentValidation = zones.find(z => z.id === selectedZone)?.validated_at;
+
+            // Construct full zone data object (without image)
+            const newZoneData = {
+                points: zonePoints,
+                imageUrl: null,
+                validated_at: currentValidation
+            };
+
+            // Update DB
+            await saveCorrosionPoints(rtgId, selectedZone, newZoneData);
+
+            // Update Context
+            setZoneImages(prev => {
+                const next = { ...prev };
+                delete next[selectedZone];
+                return next;
+            });
+
+        } catch (err) {
+            console.error("Delete failed:", err);
+            alert("Erreur lors de la suppression");
+        }
     };
 
     const handleAddPoint = (coords) => {
@@ -36,16 +113,29 @@ const InspectionModule = ({ rtgId }) => {
             date: new Date().toISOString().split('T')[0]
         };
         setEditingPoint(newPoint);
+        setValidationError(null);
         setIsModalOpen(true);
     };
 
     const handlePointClick = (point) => {
         setEditingPoint(point);
+        setValidationError(null);
         setIsModalOpen(true);
     };
 
-    const handleSavePoint = () => {
+    const handleSavePoint = async () => {
         if (!editingPoint) return;
+
+        if (!editingPoint.notes || editingPoint.notes.trim() === '') {
+            setValidationError("La description est obligatoire.");
+            return;
+        }
+
+        // Update local state first (optimistic)
+        const updatedPoints = corrosionData.map(p => p.id === editingPoint.id ? editingPoint : p);
+        if (!corrosionData.find(p => p.id === editingPoint.id)) {
+            updatedPoints.push(editingPoint);
+        }
 
         setCorrosionData(prev => {
             const exists = prev.find(p => p.id === editingPoint.id);
@@ -55,13 +145,63 @@ const InspectionModule = ({ rtgId }) => {
                 return [...prev, editingPoint];
             }
         });
+
+        // Save to DB
+        try {
+            const { saveCorrosionPoints } = await import('../../services/supabaseDb');
+            // Filter points for this zone only
+            const zonePointsToSave = updatedPoints.filter(p => p.rtgId === rtgId && p.zone === selectedZone);
+
+            // Get current image and validation
+            const currentImage = zoneImages[selectedZone];
+            const currentValidation = zones.find(z => z.id === selectedZone)?.validated_at;
+
+            const newZoneData = {
+                points: zonePointsToSave,
+                imageUrl: currentImage,
+                validated_at: currentValidation
+            };
+
+            await saveCorrosionPoints(rtgId, selectedZone, newZoneData);
+            console.log("Points saved to DB for zone:", selectedZone);
+        } catch (err) {
+            console.error("Failed to save points:", err);
+            alert("Erreur lors de la sauvegarde des points");
+        }
+
         setIsModalOpen(false);
         setEditingPoint(null);
     };
 
-    const handleDeletePoint = () => {
+    const handleDeletePoint = async () => {
         if (!editingPoint) return;
+
+        const updatedPoints = corrosionData.filter(p => p.id !== editingPoint.id);
         setCorrosionData(prev => prev.filter(p => p.id !== editingPoint.id));
+
+        // Save to DB
+        try {
+            const { saveCorrosionPoints } = await import('../../services/supabaseDb');
+            // Filter points for this zone only
+            const zonePointsToSave = updatedPoints.filter(p => p.rtgId === rtgId && p.zone === selectedZone);
+
+            // Get current image and validation
+            const currentImage = zoneImages[selectedZone];
+            const currentValidation = zones.find(z => z.id === selectedZone)?.validated_at;
+
+            const newZoneData = {
+                points: zonePointsToSave,
+                imageUrl: currentImage,
+                validated_at: currentValidation
+            };
+
+            await saveCorrosionPoints(rtgId, selectedZone, newZoneData);
+            console.log("Points saved to DB (after delete) for zone:", selectedZone);
+        } catch (err) {
+            console.error("Failed to save points after delete:", err);
+            alert("Erreur lors de la sauvegarde des points");
+        }
+
         setIsModalOpen(false);
         setEditingPoint(null);
     };
@@ -119,6 +259,7 @@ const InspectionModule = ({ rtgId }) => {
                     <ImageAnnotator
                         image={zoneImages[selectedZone]}
                         onImageUpload={handleImageUpload}
+                        onImageDelete={zoneImages[selectedZone] ? handleImageDelete : null}
                         points={zonePoints}
                         onAddPoint={handleAddPoint}
                         onPointClick={handlePointClick}
@@ -134,8 +275,8 @@ const InspectionModule = ({ rtgId }) => {
                                     <div key={point.id} onClick={() => handlePointClick(point)} className="flex items-center justify-between p-3 rounded bg-[var(--bg-glass)] border border-[var(--border-glass)] hover:border-[var(--primary)] cursor-pointer transition-colors">
                                         <div className="flex items-center gap-3">
                                             <div className={`w-6 h-6 rounded-full border-2 border-white flex items-center justify-center text-xs font-bold text-white ${point.severity === 'High' ? 'bg-[var(--danger)]' :
-                                                    point.severity === 'Medium' ? 'bg-[var(--warning)]' :
-                                                        'bg-[var(--success)]'
+                                                point.severity === 'Medium' ? 'bg-[var(--warning)]' :
+                                                    'bg-[var(--success)]'
                                                 }`}>{index + 1}</div>
                                             <div>
                                                 <span className="text-sm text-[var(--text-main)] font-medium">#{index + 1}</span>
@@ -148,6 +289,71 @@ const InspectionModule = ({ rtgId }) => {
                             )}
                         </div>
                     </div>
+
+                    {/* Zone Validation */}
+                    <div className="mt-6 p-4 bg-[var(--bg-glass)] rounded-lg border border-[var(--border-glass)]">
+                        {zones.find(z => z.id === selectedZone)?.validated_at ? (
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <div className="flex items-center gap-2 text-[var(--success)] mb-1">
+                                        <CheckCircle className="w-4 h-4" />
+                                        <span className="text-sm font-bold">Zone Validée</span>
+                                    </div>
+                                    <p className="text-xs text-[var(--text-muted)]">
+                                        {new Date(zones.find(z => z.id === selectedZone)?.validated_at).toLocaleString('fr-FR')}
+                                    </p>
+                                </div>
+                            </div>
+                        ) : (
+                            <div>
+                                <p className="text-sm text-[var(--text-muted)] mb-3">
+                                    Validez cette zone pour confirmer l'inspection
+                                </p>
+                                <Button
+                                    variant="success"
+                                    className="w-full"
+                                    disabled={!zoneImages[selectedZone]}
+                                    onClick={async () => {
+                                        try {
+                                            const { saveCorrosionPoints } = await import('../../services/supabaseDb');
+
+                                            // Get current image
+                                            const currentImage = zoneImages[selectedZone];
+                                            const validationTimestamp = new Date().toISOString();
+
+                                            // Save full object
+                                            const newZoneData = {
+                                                points: zonePoints,
+                                                imageUrl: currentImage,
+                                                validated_at: validationTimestamp
+                                            };
+
+                                            await saveCorrosionPoints(rtgId, selectedZone, newZoneData);
+
+                                            // Update Context
+                                            setZones(prev => prev.map(z =>
+                                                z.id === selectedZone ? { ...z, validated_at: new Date().toISOString() } : z
+                                            ));
+
+                                            alert(`Zone ${zones.find(z => z.id === selectedZone)?.name} validée avec succès!`);
+                                        } catch (err) {
+                                            console.error('Validation failed:', err);
+                                            alert(`Erreur lors de la validation: ${err.message || 'Erreur inconnue'}`);
+                                        }
+                                    }}
+                                >
+                                    <CheckCircle className="w-4 h-4 mr-2" />
+                                    Valider Zone {zones.find(z => z.id === selectedZone)?.name}
+                                </Button>
+                                {!zoneImages[selectedZone] && (
+                                    <p className="text-xs text-[var(--warning)] mt-2 flex items-center gap-1">
+                                        <AlertTriangle className="w-3 h-3" />
+                                        Ajoutez une image de la zone pour valider
+                                    </p>
+                                )}
+                            </div>
+                        )}
+                    </div>
                 </Card>
             </div>
 
@@ -156,7 +362,12 @@ const InspectionModule = ({ rtgId }) => {
                 {editingPoint && (
                     <div className="space-y-4">
                         <div>
-                            <label className="block text-sm text-[var(--text-muted)] mb-1">Sévérité</label>
+                            <div className="flex items-center gap-2 mb-1">
+                                <label className="block text-sm text-[var(--text-muted)]">Sévérité</label>
+                                <Tooltip text="Indiquez le niveau de corrosion observé.">
+                                    <Info size={14} className="text-[var(--text-muted)] cursor-help" />
+                                </Tooltip>
+                            </div>
                             <div className="flex gap-2">
                                 {['Low', 'Medium', 'High'].map(level => (
                                     <button
@@ -176,13 +387,22 @@ const InspectionModule = ({ rtgId }) => {
                         </div>
 
                         <div>
-                            <label className="block text-sm text-[var(--text-muted)] mb-1">Description / Notes</label>
+                            <label className="block text-sm text-[var(--text-muted)] mb-1">Description / Notes <span className="text-[var(--danger)]">*</span></label>
                             <textarea
                                 value={editingPoint.notes}
-                                onChange={(e) => setEditingPoint({ ...editingPoint, notes: e.target.value })}
-                                className="w-full h-24 bg-[var(--bg-dark)] border border-[var(--border-glass)] rounded-lg p-3 text-[var(--text-main)] focus:border-[var(--primary)] outline-none resize-none"
+                                onChange={(e) => {
+                                    setEditingPoint({ ...editingPoint, notes: e.target.value });
+                                    if (e.target.value.trim() !== '') setValidationError(null);
+                                }}
+                                className={`w-full h-24 bg-[var(--bg-dark)] border rounded-lg p-3 text-[var(--text-main)] focus:border-[var(--primary)] outline-none resize-none ${validationError ? 'border-[var(--danger)]' : 'border-[var(--border-glass)]'}`}
                                 placeholder="Décrire le type de corrosion, surface affectée..."
                             />
+                            {validationError && (
+                                <p className="text-[var(--danger)] text-xs mt-1 flex items-center gap-1">
+                                    <AlertTriangle size={12} />
+                                    {validationError}
+                                </p>
+                            )}
                         </div>
 
                         <div className="flex gap-3 pt-4">
@@ -197,8 +417,8 @@ const InspectionModule = ({ rtgId }) => {
                         </div>
                     </div>
                 )}
-            </Modal>
-        </div>
+            </Modal >
+        </div >
     );
 };
 
