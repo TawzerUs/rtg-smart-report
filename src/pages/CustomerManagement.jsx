@@ -205,13 +205,57 @@ const CustomerManagement = () => {
                         />
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-gray-400 mb-1">Logo URL (Optional)</label>
+                        <label className="block text-sm font-medium text-gray-400 mb-1">Logo</label>
+                        <div className="flex items-center gap-4">
+                            {newCustomer.logo_url && (
+                                <img src={newCustomer.logo_url} alt="Preview" className="h-10 w-10 object-contain bg-white/10 rounded" />
+                            )}
+                            <input
+                                type="file"
+                                accept="image/*"
+                                onChange={async (e) => {
+                                    const file = e.target.files[0];
+                                    if (!file) return;
+
+                                    try {
+                                        const { supabase } = await import('../lib/supabase'); // Dynamic import to avoid circular dep issues if any, or just safety
+                                        const fileExt = file.name.split('.').pop();
+                                        const fileName = `${Math.random().toString(36).substring(2)}.${fileExt}`;
+                                        const filePath = `customer-logos/${fileName}`;
+
+                                        // Upload logic - Assuming 'public' or specific bucket
+                                        const { error: uploadError } = await supabase.storage
+                                            .from('public') // Using 'public' bucket for now, or 'customer-logos' if exists
+                                            .upload(filePath, file);
+
+                                        if (uploadError) throw uploadError;
+
+                                        const { data: { publicUrl } } = supabase.storage
+                                            .from('public')
+                                            .getPublicUrl(filePath);
+
+                                        setNewCustomer({ ...newCustomer, logo_url: publicUrl });
+                                    } catch (err) {
+                                        console.error("Upload failed", err);
+                                        alert("Failed to upload logo: " + err.message);
+                                    }
+                                }}
+                                className="block w-full text-sm text-gray-400
+                                  file:mr-4 file:py-2 file:px-4
+                                  file:rounded-lg file:border-0
+                                  file:text-sm file:font-semibold
+                                  file:bg-blue-600 file:text-white
+                                  hover:file:bg-blue-700
+                                "
+                            />
+                        </div>
+                        {/* Fallback URL input */}
                         <input
                             type="text"
                             value={newCustomer.logo_url || ''}
                             onChange={(e) => setNewCustomer({ ...newCustomer, logo_url: e.target.value })}
-                            className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-blue-500"
-                            placeholder="https://example.com/logo.png"
+                            className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-blue-500 mt-2 text-xs"
+                            placeholder="Or paste image URL"
                         />
                     </div>
                     <div>
@@ -275,13 +319,55 @@ const CustomerManagement = () => {
                             </select>
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-gray-400 mb-1">Logo URL (Optional)</label>
+                            <label className="block text-sm font-medium text-gray-400 mb-1">Logo</label>
+                            <div className="flex items-center gap-4">
+                                {editingCustomer.logo_url && (
+                                    <img src={editingCustomer.logo_url} alt="Preview" className="h-10 w-10 object-contain bg-white/10 rounded" />
+                                )}
+                                <input
+                                    type="file"
+                                    accept="image/*"
+                                    onChange={async (e) => {
+                                        const file = e.target.files[0];
+                                        if (!file) return;
+
+                                        try {
+                                            const { supabase } = await import('../lib/supabase');
+                                            const fileExt = file.name.split('.').pop();
+                                            const fileName = `${Math.random().toString(36).substring(2)}.${fileExt}`;
+                                            const filePath = `customer-logos/${fileName}`;
+
+                                            const { error: uploadError } = await supabase.storage
+                                                .from('public')
+                                                .upload(filePath, file);
+
+                                            if (uploadError) throw uploadError;
+
+                                            const { data: { publicUrl } } = supabase.storage
+                                                .from('public')
+                                                .getPublicUrl(filePath);
+
+                                            setEditingCustomer({ ...editingCustomer, logo_url: publicUrl });
+                                        } catch (err) {
+                                            console.error("Upload failed", err);
+                                            alert("Failed to upload logo: " + err.message);
+                                        }
+                                    }}
+                                    className="block w-full text-sm text-gray-400
+                                      file:mr-4 file:py-2 file:px-4
+                                      file:rounded-lg file:border-0
+                                      file:text-sm file:font-semibold
+                                      file:bg-blue-600 file:text-white
+                                      hover:file:bg-blue-700
+                                    "
+                                />
+                            </div>
                             <input
                                 type="text"
                                 value={editingCustomer.logo_url || ''}
                                 onChange={(e) => setEditingCustomer({ ...editingCustomer, logo_url: e.target.value })}
-                                className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-blue-500"
-                                placeholder="https://example.com/logo.png"
+                                className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-blue-500 mt-2 text-xs"
+                                placeholder="Or paste image URL"
                             />
                         </div>
                         <div>

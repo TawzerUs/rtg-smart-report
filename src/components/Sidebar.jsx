@@ -21,6 +21,19 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
         console.log('❌ Admin links hidden - userRole is:', userRole);
     }
 
+    const [clientInfo, setClientInfo] = React.useState(null);
+
+    React.useEffect(() => {
+        const stored = localStorage.getItem('selectedClient');
+        if (stored) {
+            try {
+                setClientInfo(JSON.parse(stored));
+            } catch (e) {
+                console.error("Error parsing stored client", e);
+            }
+        }
+    }, []);
+
     return (
         <aside className={`fixed top-0 left-0 z-40 h-screen transition-transform ${isOpen ? 'translate-x-0' : '-translate-x-full'} sm:translate-x-0 w-64 bg-[#0a0a12] border-r border-[var(--border-glass)]`}>
             <div className="h-full px-3 py-4 overflow-y-auto flex flex-col">
@@ -60,15 +73,36 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
                     </button>
                 </div>
 
-                {/* Customer Logos Footer */}
-                <div className="pt-4 border-t border-[var(--border-glass)]">
-                    <p className="text-[10px] text-[var(--text-muted)] mb-3 text-center uppercase tracking-wider">Client Partenaire</p>
-                    <div className="flex justify-center">
-                        <div className="bg-white/5 p-2 rounded-lg border border-white/5 hover:border-[var(--primary)] transition-colors">
-                            <img src={eurogateLogo} alt="Eurogate" className="h-5 w-auto opacity-70 hover:opacity-100 transition-opacity" />
+                {/* Dynamic Customer Logo Footer */}
+                {clientInfo && (
+                    <div className="pt-4 border-t border-[var(--border-glass)]">
+                        <p className="text-[10px] text-[var(--text-muted)] mb-3 text-center uppercase tracking-wider">
+                            {clientInfo.name}
+                        </p>
+                        <div className="flex justify-center">
+                            <div className="bg-white/5 p-2 rounded-lg border border-white/5 transition-colors">
+                                {clientInfo.logo_url ? (
+                                    <img
+                                        src={clientInfo.logo_url}
+                                        alt={clientInfo.name}
+                                        className="h-8 w-auto object-contain opacity-90"
+                                        onError={(e) => {
+                                            e.target.onerror = null;
+                                            e.target.style.display = 'none';
+                                            e.target.parentElement.innerHTML = '<span class="text-xs text-gray-400">No Logo</span>';
+                                        }}
+                                    />
+                                ) : (
+                                    <div className="h-8 w-8 flex items-center justify-center bg-blue-900/30 rounded">
+                                        <span className="text-blue-400 font-bold text-xs">
+                                            {clientInfo.name.substring(0, 2).toUpperCase()}
+                                        </span>
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     </div>
-                </div>
+                )}
             </div>
         </aside>
     );
