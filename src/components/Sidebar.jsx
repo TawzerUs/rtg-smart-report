@@ -1,11 +1,11 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Camera, Settings, Users } from 'lucide-react';
+import { LayoutDashboard, Camera, Settings, Users, LogOut } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import eurogateLogo from '../assets/logos/eurogate.svg';
 
 const Sidebar = ({ isOpen, toggleSidebar }) => {
-    const { userRole } = useAuth();
+    const { userRole, signOut } = useAuth();
     console.log('🔍 Sidebar - userRole:', userRole);
 
     const navItems = [
@@ -46,8 +46,22 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
                     ))}
                 </ul>
 
+                {/* Sign Out Button */}
+                <div className="px-1 mb-4 mt-auto">
+                    <button
+                        onClick={async () => {
+                            await signOut();
+                            window.location.href = '/';
+                        }}
+                        className="w-full flex items-center p-3 rounded-lg text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-all duration-200"
+                    >
+                        <LogOut className="w-5 h-5" />
+                        <span className="ml-3 font-medium">Sign Out</span>
+                    </button>
+                </div>
+
                 {/* Customer Logos Footer */}
-                <div className="mt-4 pt-4 border-t border-[var(--border-glass)]">
+                <div className="pt-4 border-t border-[var(--border-glass)]">
                     <p className="text-[10px] text-[var(--text-muted)] mb-3 text-center uppercase tracking-wider">Client Partenaire</p>
                     <div className="flex justify-center">
                         <div className="bg-white/5 p-2 rounded-lg border border-white/5 hover:border-[var(--primary)] transition-colors">

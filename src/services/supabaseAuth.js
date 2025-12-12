@@ -148,13 +148,8 @@ export const signOut = async () => {
             console.warn('Sign out error (continuing anyway):', error);
         }
 
-        console.log('Sign out complete, redirecting...');
-
-        // Small delay to ensure storage is cleared, then redirect
-        setTimeout(() => {
-            window.location.href = '/login';
-        }, 100);
-
+        console.log('Sign out complete');
+        // Redirect handled by caller or context
     } catch (error) {
         console.error('Error signing out:', error);
         // Even if there's an error, clear storage and redirect
