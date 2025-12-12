@@ -3,6 +3,7 @@ import { FileText, Download, Filter, Search, Eye, Edit, X, CheckCircle, Clock, U
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import { useProject } from '../context/ProjectContext';
+import { useAuth } from '../context/AuthContext';
 import Card from '../components/Card';
 import Button from '../components/Button';
 import StatusBadge from '../components/StatusBadge';
@@ -12,7 +13,8 @@ import ProgressChart from '../components/reports/ProgressChart';
 import SimpleBarChart from '../components/reports/SimpleBarChart';
 
 const Reports = () => {
-    const { rtgs, workOrders, corrosionData, paintingData, coatingControlData, observations, headerImage, zoneImages } = useProject();
+    const { rtgs, workOrders, corrosionData, paintingData, coatingControlData, observations, headerImage, zoneImages, selectedProject } = useProject();
+    const { userRole, hasAccessToProject } = useAuth();
     const [selectedReport, setSelectedReport] = useState(null);
 
     // Filters State
@@ -27,8 +29,17 @@ const Reports = () => {
     const generateReportsFromLogs = () => {
         const reports = [];
 
-        // 1. Create a master "Current State" report for each RTG
-        rtgs.forEach(rtg => {
+        // Filter RTGs based on user access
+        const accessibleRtgs = userRole === 'admin'
+            ? rtgs
+            : rtgs.filter(rtg => {
+                // Check if user has access to this RTG's project
+                // Assuming RTG has project_id which links to a project with customer_id
+                return selectedProject && hasAccessToProject(selectedProject);
+            });
+
+        // 1. Create a master "Current State" report for each accessible RTG
+        accessibleRtgs.forEach(rtg => {
             // Gather all data for this RTG
             const rtgTasks = workOrders.filter(wo => wo.rtgId === rtg.id || wo.rtg_id === rtg.id);
             const rtgCorrosion = corrosionData.filter(c => c.rtgId === rtg.id);

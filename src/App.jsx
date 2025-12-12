@@ -33,6 +33,7 @@ function App() {
                             <Routes>
                                 {/* Public routes */}
                                 <Route path="/" element={<ClientSelection />} />
+                                <Route path="/clients" element={<ClientSelection />} />
                                 <Route path="/login" element={<CleanLogin />} />
                                 <Route path="/clean-login" element={<CleanLogin />} />
                                 <Route path="/simple-login" element={<SimpleLogin />} />
@@ -51,7 +52,6 @@ function App() {
                                         </Layout>
                                     </ProtectedRoute>
                                 } />
-                                <Route path="/clients" element={<ClientSelection />} />
                                 <Route path="/projects" element={
                                     <ProtectedRoute>
                                         <ProjectSelection />

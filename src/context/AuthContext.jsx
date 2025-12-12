@@ -9,6 +9,7 @@ import {
     fetchUserRole,
     createUserDocument,
 } from "../services/supabaseAuth";
+import { getUserCustomers } from "../services/supabaseDb";
 
 const AuthContext = createContext();
 
@@ -23,6 +24,7 @@ export function useAuth() {
 export function AuthProvider({ children }) {
     const [user, setUser] = useState(null);
     const [userRole, setUserRole] = useState(null);
+    const [userCustomers, setUserCustomers] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const loadingRef = useRef(loading);
@@ -93,10 +95,15 @@ export function AuthProvider({ children }) {
                         }
                     }
 
-                    // Fetch role
+                    // Fetch role and customer assignments
                     let role = 'viewer';
+                    let customers = [];
                     try {
                         role = await fetchUserRole(userData.id, userData.email);
+                        // Fetch assigned customers
+                        if (role !== 'admin') {
+                            customers = await getUserCustomers(userData.id);
+                        }
                     } catch (roleErr) {
                         console.error("Error fetching role:", roleErr);
                         // If we can't fetch role due to RLS, clear auth and let user re-login
@@ -115,6 +122,7 @@ export function AuthProvider({ children }) {
                     if (isMounted) {
                         setUser(userData);
                         setUserRole(role);
+                        setUserCustomers(customers);
                         setLoading(false);
                     }
                     return true;
@@ -147,15 +155,22 @@ export function AuthProvider({ children }) {
                     if (supabaseUser) {
                         const role = supabaseUser.role || await fetchUserRole(supabaseUser.id, supabaseUser.email);
                         console.log("Fetched role for", supabaseUser.email, ":", role);
+                        // Fetch assigned customers
+                        let customers = [];
+                        if (role !== 'admin') {
+                            customers = await getUserCustomers(supabaseUser.id);
+                        }
                         if (isMounted) {
                             setUser(supabaseUser);
                             setUserRole(role);
+                            setUserCustomers(customers);
                         }
                     } else {
                         console.log("No user logged in");
                         if (isMounted) {
                             setUser(null);
                             setUserRole(null);
+                            setUserCustomers([]);
                         }
                     }
                 } catch (error) {
@@ -252,10 +267,15 @@ export function AuthProvider({ children }) {
                 if (error) console.warn("Error setting Supabase session:", error);
             }
 
-            // 3. Fetch Role
+            // 3. Fetch Role and Customer Assignments
             let role = 'viewer';
+            let customers = [];
             try {
                 role = await fetchUserRole(userData.id, userData.email);
+                // Fetch assigned customers
+                if (role !== 'admin') {
+                    customers = await getUserCustomers(userData.id);
+                }
             } catch (roleErr) {
                 console.error("Error fetching role during manual login:", roleErr);
             }
@@ -263,6 +283,7 @@ export function AuthProvider({ children }) {
             // 4. Update State IMMEDIATELY
             setUser(userData);
             setUserRole(role);
+            setUserCustomers(customers);
             setLoading(false);
 
             console.log("AuthContext: Manual login complete. User set.");
@@ -280,12 +301,14 @@ export function AuthProvider({ children }) {
             // Clear user state immediately
             setUser(null);
             setUserRole(null);
+            setUserCustomers([]);
             // Sign out from Supabase (this will also clear storage and redirect)
             await supabaseSignOut();
         } catch (err) {
             // Even on error, clear local state
             setUser(null);
             setUserRole(null);
+            setUserCustomers([]);
             setError(err.message);
             // Force redirect to login
             // window.location.href = '/login';
@@ -293,9 +316,21 @@ export function AuthProvider({ children }) {
         }
     };
 
+    // Helper functions for access control
+    const hasAccessToCustomer = (customerId) => {
+        if (userRole === 'admin') return true;
+        return userCustomers.some(uc => uc.customer_id === customerId);
+    };
+
+    const hasAccessToProject = (project) => {
+        if (userRole === 'admin') return true;
+        return hasAccessToCustomer(project.customer_id);
+    };
+
     const value = {
         user,
         userRole,
+        userCustomers,
         loading,
         error,
         signIn,
@@ -305,6 +340,8 @@ export function AuthProvider({ children }) {
         signOut,
         isAdmin: userRole === "admin",
         isOperator: userRole === "operator" || userRole === "admin",
+        hasAccessToCustomer,
+        hasAccessToProject,
     };
 
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

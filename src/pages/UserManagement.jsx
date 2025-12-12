@@ -1,15 +1,18 @@
 import { useState, useEffect } from "react";
-import { getAllUsers, deleteUser } from "../services/supabaseDb";
+import { getAllUsers, deleteUser, getUserCustomers } from "../services/supabaseDb";
 import { signUpWithEmail, updateUserRole, createUserDocument } from "../services/supabaseAuth";
 import { useAuth } from "../context/AuthContext";
-import { Users, UserPlus, Edit2, Trash2, Shield, Eye, Wrench } from "lucide-react";
+import { Users, UserPlus, Edit2, Trash2, Shield, Eye, Wrench, FolderGit2 } from "lucide-react";
 import Card from "../components/Card";
 import Button from "../components/Button";
+import AssignCustomersModal from "../components/AssignCustomersModal";
 
 export default function UserManagement() {
     const [users, setUsers] = useState([]);
     const [loading, setLoading] = useState(true);
     const [showAddUser, setShowAddUser] = useState(false);
+    const [selectedUserForAssignment, setSelectedUserForAssignment] = useState(null);
+    const [userCustomersMap, setUserCustomersMap] = useState({});
     const { userRole } = useAuth();
 
     // Form state
@@ -28,6 +31,16 @@ export default function UserManagement() {
         try {
             const usersData = await getAllUsers();
             setUsers(usersData);
+
+            // Fetch assigned customers for each user
+            const customersMap = {};
+            await Promise.all(
+                usersData.map(async (user) => {
+                    const userCustomers = await getUserCustomers(user.id);
+                    customersMap[user.id] = userCustomers;
+                })
+            );
+            setUserCustomersMap(customersMap);
         } catch (error) {
             console.error("Error fetching users:", error);
         } finally {
@@ -218,6 +231,9 @@ export default function UserManagement() {
                                         Role
                                     </th>
                                     <th className="text-left py-3 px-4 font-medium text-gray-700 dark:text-gray-300">
+                                        Assigned Workspaces
+                                    </th>
+                                    <th className="text-left py-3 px-4 font-medium text-gray-700 dark:text-gray-300">
                                         Created
                                     </th>
                                     <th className="text-right py-3 px-4 font-medium text-gray-700 dark:text-gray-300">
@@ -257,16 +273,41 @@ export default function UserManagement() {
                                                 <option value="admin">Administrator</option>
                                             </select>
                                         </td>
+                                        <td className="py-3 px-4">
+                                            <div className="flex flex-wrap gap-1">
+                                                {userCustomersMap[user.id]?.length > 0 ? (
+                                                    userCustomersMap[user.id].map((uc) => (
+                                                        <span
+                                                            key={uc.customer_id}
+                                                            className="px-2 py-1 bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400 rounded text-xs"
+                                                        >
+                                                            {uc.customers?.name || uc.customer_id}
+                                                        </span>
+                                                    ))
+                                                ) : (
+                                                    <span className="text-gray-400 text-sm">No assignments</span>
+                                                )}
+                                            </div>
+                                        </td>
                                         <td className="py-3 px-4 text-sm text-gray-600 dark:text-gray-400">
                                             {user.created_at ? new Date(user.created_at).toLocaleDateString() : "N/A"}
                                         </td>
                                         <td className="py-3 px-4 text-right">
-                                            <button
-                                                onClick={() => handleDeleteUser(user.id)}
-                                                className="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
-                                            >
-                                                <Trash2 className="w-5 h-5" />
-                                            </button>
+                                            <div className="flex gap-2 justify-end">
+                                                <button
+                                                    onClick={() => setSelectedUserForAssignment(user)}
+                                                    className="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+                                                    title="Assign Workspaces"
+                                                >
+                                                    <FolderGit2 className="w-5 h-5" />
+                                                </button>
+                                                <button
+                                                    onClick={() => handleDeleteUser(user.id)}
+                                                    className="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
+                                                >
+                                                    <Trash2 className="w-5 h-5" />
+                                                </button>
+                                            </div>
                                         </td>
                                     </tr>
                                 ))}
@@ -275,6 +316,14 @@ export default function UserManagement() {
                     </div>
                 )}
             </Card>
+
+            {/* Assign Customers Modal */}
+            <AssignCustomersModal
+                user={selectedUserForAssignment}
+                isOpen={!!selectedUserForAssignment}
+                onClose={() => setSelectedUserForAssignment(null)}
+                onSuccess={fetchUsers}
+            />
         </div>
     );
 }

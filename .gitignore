@@ -50,3 +50,7 @@ dist-ssr
 .cache
 .parcel-cache
 .eslintcache
+
+# Backups & Logs
+dist.backup*
+build.log

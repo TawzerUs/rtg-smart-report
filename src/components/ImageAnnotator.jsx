@@ -2,11 +2,11 @@ import React, { useState, useRef } from 'react';
 import { Camera, MapPin, X } from 'lucide-react';
 import Button from './Button';
 
-const ImageAnnotator = ({ image, onImageUpload, onDeleteImage, points, onAddPoint, onPointClick }) => {
+const ImageAnnotator = ({ image, onImageUpload, onDeleteImage, points, onAddPoint, onPointClick, readOnly = false }) => {
     const imgRef = useRef(null);
 
     const handleImageClick = (e) => {
-        if (!imgRef.current || !image) return;
+        if (readOnly || !imgRef.current || !image) return;
 
         const rect = imgRef.current.getBoundingClientRect();
         const x = ((e.clientX - rect.left) / rect.width) * 100;
@@ -16,6 +16,7 @@ const ImageAnnotator = ({ image, onImageUpload, onDeleteImage, points, onAddPoin
     };
 
     const handleFileChange = (e) => {
+        if (readOnly) return;
         const file = e.target.files[0];
         if (file) {
             const reader = new FileReader();
@@ -27,14 +28,14 @@ const ImageAnnotator = ({ image, onImageUpload, onDeleteImage, points, onAddPoin
     };
 
     return (
-        <div className="relative w-full bg-[var(--bg-dark)] rounded-lg overflow-hidden border border-[var(--border-glass)] shadow-inner min-h-[400px] flex items-center justify-center group">
+        <div className={`relative w-full bg-[var(--bg-dark)] rounded-lg overflow-hidden border border-[var(--border-glass)] shadow-inner min-h-[400px] flex items-center justify-center group ${readOnly ? 'cursor-default' : ''}`}>
             {image ? (
                 <>
                     <img
                         ref={imgRef}
                         src={image}
                         alt="Inspection Area"
-                        className="w-full h-full object-contain cursor-crosshair"
+                        className={`w-full h-full object-contain ${readOnly ? 'cursor-default' : 'cursor-crosshair'}`}
                         onClick={handleImageClick}
                     />
 
@@ -46,7 +47,7 @@ const ImageAnnotator = ({ image, onImageUpload, onDeleteImage, points, onAddPoin
                                 e.stopPropagation();
                                 onPointClick(point);
                             }}
-                            className={`absolute w-8 h-8 -ml-4 -mt-4 rounded-full border-2 border-white cursor-pointer transform hover:scale-125 transition-transform flex items-center justify-center shadow-lg group ${point.severity === 'High' ? 'bg-[var(--danger)]' :
+                            className={`absolute w-8 h-8 -ml-4 -mt-4 rounded-full border-2 border-white cursor-pointer transform ${!readOnly && 'hover:scale-125 transition-transform'} flex items-center justify-center shadow-lg group ${point.severity === 'High' ? 'bg-[var(--danger)]' :
                                 point.severity === 'Medium' ? 'bg-[var(--warning)]' :
                                     'bg-[var(--success)]'
                                 }`}
@@ -83,25 +84,27 @@ const ImageAnnotator = ({ image, onImageUpload, onDeleteImage, points, onAddPoin
                     ))}
 
                     {/* Image Controls */}
-                    <div className="absolute top-4 right-4 flex gap-2">
-                        <label className="cursor-pointer bg-black/50 hover:bg-black/70 text-white p-2 rounded-lg backdrop-blur-sm flex items-center gap-2">
-                            <Camera className="w-4 h-4" />
-                            <span className="text-xs">Changer</span>
-                            <input type="file" className="hidden" accept="image/*" onChange={handleFileChange} />
-                        </label>
-                        {onDeleteImage && (
-                            <button
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    if (confirm('Supprimer cette image ?')) onDeleteImage();
-                                }}
-                                className="bg-red-600/80 hover:bg-red-700/90 text-white p-2 rounded-lg backdrop-blur-sm flex items-center gap-2"
-                            >
-                                <X className="w-4 h-4" />
-                                <span className="text-xs">Supprimer</span>
-                            </button>
-                        )}
-                    </div>
+                    {!readOnly && (
+                        <div className="absolute top-4 right-4 flex gap-2">
+                            <label className="cursor-pointer bg-black/50 hover:bg-black/70 text-white p-2 rounded-lg backdrop-blur-sm flex items-center gap-2">
+                                <Camera className="w-4 h-4" />
+                                <span className="text-xs">Changer</span>
+                                <input type="file" className="hidden" accept="image/*" onChange={handleFileChange} />
+                            </label>
+                            {onDeleteImage && (
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        if (confirm('Supprimer cette image ?')) onDeleteImage();
+                                    }}
+                                    className="bg-red-600/80 hover:bg-red-700/90 text-white p-2 rounded-lg backdrop-blur-sm flex items-center gap-2"
+                                >
+                                    <X className="w-4 h-4" />
+                                    <span className="text-xs">Supprimer</span>
+                                </button>
+                            )}
+                        </div>
+                    )}
                 </>
             ) : (
                 <div className="text-center p-10">
@@ -109,12 +112,18 @@ const ImageAnnotator = ({ image, onImageUpload, onDeleteImage, points, onAddPoin
                         <Camera className="w-8 h-8" />
                     </div>
                     <h3 className="text-lg font-medium text-[var(--text-main)] mb-2">Aucune image sélectionnée</h3>
-                    <p className="text-[var(--text-muted)] text-sm mb-6">Téléchargez une photo de la zone pour commencer l'annotation.</p>
-                    <label className="inline-flex items-center gap-2 px-6 py-3 bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-black font-medium rounded-lg cursor-pointer transition-all shadow-[0_0_20px_rgba(0,240,255,0.3)] hover:shadow-[0_0_30px_rgba(0,240,255,0.5)]">
-                        <Camera className="w-5 h-5" />
-                        <span>Télécharger Photo</span>
-                        <input type="file" className="hidden" accept="image/*" onChange={handleFileChange} />
-                    </label>
+                    {readOnly ? (
+                        <p className="text-[var(--text-muted)] text-sm mb-6">En attente de l'image de l'opérateur.</p>
+                    ) : (
+                        <>
+                            <p className="text-[var(--text-muted)] text-sm mb-6">Téléchargez une photo de la zone pour commencer l'annotation.</p>
+                            <label className="inline-flex items-center gap-2 px-6 py-3 bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-black font-medium rounded-lg cursor-pointer transition-all shadow-[0_0_20px_rgba(0,240,255,0.3)] hover:shadow-[0_0_30px_rgba(0,240,255,0.5)]">
+                                <Camera className="w-5 h-5" />
+                                <span>Télécharger Photo</span>
+                                <input type="file" className="hidden" accept="image/*" onChange={handleFileChange} />
+                            </label>
+                        </>
+                    )}
                 </div>
             )}
         </div>

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useProject } from '../../context/ProjectContext';
+import { useAuth } from '../../context/AuthContext';
 import Card from '../Card';
 import Button from '../Button';
 import StatusBadge from '../StatusBadge';
@@ -8,6 +9,7 @@ import { Camera, CheckCircle, Upload, AlertCircle } from 'lucide-react';
 
 const LavageModule = ({ rtgId }) => {
     const { workOrders, setWorkOrders } = useProject();
+    const { isOperator } = useAuth();
 
     // Find the Lavage task for this RTG
     const task = workOrders.find(wo => wo.rtgId === rtgId && wo.title === 'Lavage Industriel');
@@ -133,6 +135,7 @@ const LavageModule = ({ rtgId }) => {
                         multiple={true}
                         maxImages={10}
                         label="Capturer Photo Avant"
+                        readOnly={!isOperator}
                     />
                 </Card>
 
@@ -144,6 +147,7 @@ const LavageModule = ({ rtgId }) => {
                         multiple={true}
                         maxImages={10}
                         label="Capturer Photo Après"
+                        readOnly={!isOperator}
                     />
                 </Card>
             </div>
@@ -167,12 +171,12 @@ const LavageModule = ({ rtgId }) => {
                         )}
 
                         <div className="mt-6 w-full space-y-3">
-                            {task.status === 'Pending' && (
+                            {task.status === 'Pending' && isOperator && (
                                 <Button variant="primary" className="w-full" onClick={() => handleStatusUpdate('In Progress')}>
                                     Démarrer Lavage
                                 </Button>
                             )}
-                            {task.status === 'In Progress' && !task.validated_at && (
+                            {task.status === 'In Progress' && !task.validated_at && isOperator && (
                                 <Button
                                     variant="success"
                                     className="w-full"
@@ -238,8 +242,9 @@ const LavageModule = ({ rtgId }) => {
                                 <input
                                     type="checkbox"
                                     checked={checklist[item.key]}
-                                    onChange={() => handleCheck(item.key)}
-                                    className="w-5 h-5 rounded border-[var(--border-glass)] bg-[var(--bg-dark)] text-[var(--primary)] focus:ring-0 focus:ring-offset-0"
+                                    onChange={() => isOperator && handleCheck(item.key)}
+                                    disabled={!isOperator}
+                                    className={`w-5 h-5 rounded border-[var(--border-glass)] bg-[var(--bg-dark)] text-[var(--primary)] focus:ring-0 focus:ring-offset-0 ${!isOperator ? 'opacity-50 cursor-not-allowed' : ''}`}
                                 />
                                 <span className={checklist[item.key] ? 'text-[var(--text-main)]' : 'text-[var(--text-muted)]'}>
                                     {item.label}

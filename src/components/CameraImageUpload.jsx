@@ -12,11 +12,13 @@ const CameraImageUpload = ({
     multiple = false,
     maxImages = 10,
     label = "Add Photo",
-    className = ""
+    className = "",
+    readOnly = false
 }) => {
     const fileInputRef = useRef(null);
 
     const handleFileSelect = async (e) => {
+        if (readOnly) return;
         const files = Array.from(e.target.files);
 
         for (const file of files) {
@@ -41,10 +43,10 @@ const CameraImageUpload = ({
     };
 
     const triggerFileInput = () => {
-        fileInputRef.current?.click();
+        if (!readOnly) fileInputRef.current?.click();
     };
 
-    const canAddMore = multiple ? images.length < maxImages : images.length === 0;
+    const canAddMore = !readOnly && (multiple ? images.length < maxImages : images.length === 0);
 
     return (
         <div className={`space-y-4 ${className}`}>
@@ -61,7 +63,7 @@ const CameraImageUpload = ({
                                 alt={`Upload ${index + 1}`}
                                 className="w-full h-full object-cover"
                             />
-                            {onImageRemove && (
+                            {onImageRemove && !readOnly && (
                                 <button
                                     onClick={() => onImageRemove(index)}
                                     className="absolute top-2 right-2 p-1.5 rounded-full bg-red-500/90 hover:bg-red-600 text-white opacity-0 group-hover:opacity-100 transition-opacity"

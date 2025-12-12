@@ -2,13 +2,15 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { FolderGit2, Plus, ArrowRight, ArrowLeft, Search, Box } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useProject } from '../context/ProjectContext';
 import Modal from '../components/Modal';
 import { getCustomerProjects, createProject, subscribeToCustomerProjects } from '../services/supabaseDb';
 
 const ProjectSelection = () => {
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
-    const { user } = useAuth();
+    const { user, hasAccessToCustomer, userRole } = useAuth();
+    const { selectProject } = useProject();
 
     // State
     const [projects, setProjects] = useState([]);
@@ -41,6 +43,14 @@ const ProjectSelection = () => {
             return;
         }
 
+        // Access Control: Check if user has access to this customer
+        if (!hasAccessToCustomer(clientId)) {
+            console.warn(`User does not have access to customer: ${clientId}`);
+            alert('Access Denied: You do not have permission to access this workspace.');
+            navigate('/');
+            return;
+        }
+
         if (storedClient) {
             try {
                 setClientInfo(JSON.parse(storedClient));
@@ -58,7 +68,7 @@ const ProjectSelection = () => {
         }, clientId);
 
         return () => unsubscribe();
-    }, [searchParams, navigate]);
+    }, [searchParams, navigate, hasAccessToCustomer]);
 
     const loadProjects = async (clientId) => {
         setLoading(true);
@@ -70,12 +80,21 @@ const ProjectSelection = () => {
     const handleSelectProject = (project) => {
         if (project.type === 'System') {
             navigate('/admin');
-        } else {
-            // Allow ALL other project types to access the dashboard
-            // The dashboard/modules should handle different types or show generic views
-            localStorage.setItem('selectedProject', JSON.stringify(project));
-            navigate('/dashboard');
+            return;
         }
+
+        // Feature Flag: Only RTG projects are currently supported
+        const supportedTypes = ['RTG'];
+
+        // You can also check status if preferred: project.status === 'Active'
+        if (!supportedTypes.includes(project.type)) {
+            alert(`🚧 Project Not Available\n\nThe "${project.name}" workspace has not been created yet.\nPlease contact your administrator.`);
+            return;
+        }
+
+        // Proceed for supported projects
+        selectProject(project);
+        navigate('/dashboard');
     };
 
     const handleCreateProject = async (e) => {

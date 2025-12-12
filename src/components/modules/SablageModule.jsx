@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useAuth } from '../../context/AuthContext';
 import { useProject } from '../../context/ProjectContext';
 import Card from '../Card';
 import Button from '../Button';
@@ -8,6 +9,7 @@ import { Camera, CheckCircle, Ruler } from 'lucide-react';
 
 const SablageModule = ({ rtgId }) => {
     const { workOrders, setWorkOrders, zones } = useProject();
+    const { isOperator } = useAuth();
 
     const task = workOrders.find(wo => wo.rtgId === rtgId && wo.title === 'Sablage SA 2.5');
 
@@ -122,6 +124,7 @@ const SablageModule = ({ rtgId }) => {
                         multiple={true}
                         maxImages={10}
                         label="Capturer Photo Sablage"
+                        readOnly={!isOperator}
                     />
 
                     <div className="flex items-center gap-4 mb-6">
@@ -135,7 +138,8 @@ const SablageModule = ({ rtgId }) => {
                                 value={currentData.roughness}
                                 onChange={(e) => updateZoneData(selectedZone, 'roughness', e.target.value)}
                                 placeholder="Ex: 65"
-                                className="w-full bg-[var(--bg-dark)] border border-[var(--border-glass)] rounded p-2 text-[var(--text-main)] focus:border-[var(--primary)] outline-none"
+                                className={`w-full bg-[var(--bg-dark)] border border-[var(--border-glass)] rounded p-2 text-[var(--text-main)] focus:border-[var(--primary)] outline-none ${!isOperator ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                disabled={!isOperator}
                             />
                         </div>
                     </div>
@@ -152,8 +156,9 @@ const SablageModule = ({ rtgId }) => {
                                 <input
                                     type="checkbox"
                                     checked={currentData.checklist[item.key]}
-                                    onChange={() => updateChecklist(selectedZone, item.key)}
-                                    className="w-5 h-5 rounded border-[var(--border-glass)] bg-[var(--bg-dark)] text-[var(--primary)] focus:ring-0 focus:ring-offset-0"
+                                    onChange={() => isOperator && updateChecklist(selectedZone, item.key)}
+                                    disabled={!isOperator}
+                                    className={`w-5 h-5 rounded border-[var(--border-glass)] bg-[var(--bg-dark)] text-[var(--primary)] focus:ring-0 focus:ring-offset-0 ${!isOperator ? 'opacity-50 cursor-not-allowed' : ''}`}
                                 />
                                 <span className={currentData.checklist[item.key] ? 'text-[var(--text-main)]' : 'text-[var(--text-muted)]'}>
                                     {item.label}
@@ -163,14 +168,16 @@ const SablageModule = ({ rtgId }) => {
                     </div>
 
                     <div className="mt-6">
-                        <Button
-                            variant="success"
-                            className="w-full"
-                            disabled={!allChecked}
-                            onClick={() => handleStatusUpdate('In Progress')} // Just updates global task status for now
-                        >
-                            Valider Zone {selectedZone}
-                        </Button>
+                        {isOperator && (
+                            <Button
+                                variant="success"
+                                className="w-full"
+                                disabled={!allChecked}
+                                onClick={() => handleStatusUpdate('In Progress')} // Just updates global task status for now
+                            >
+                                Valider Zone {selectedZone}
+                            </Button>
+                        )}
                     </div>
                 </Card>
             </div>

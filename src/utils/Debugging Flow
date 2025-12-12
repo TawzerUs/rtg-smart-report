@@ -1,0 +1,6 @@
+“Trace the last failing request and compare to the last passing one. What changed?” This gave me a clean diff of state and timing, not just a stack trace dump.
+“Explain the most likely root cause in one paragraph, then list 3 evidence points from logs or code.” Forces receipts. If the agent can’t cite, I don’t trust it.
+“Propose a minimal fix that reduces cycle time risk. Include a diff and a rollback plan.” This keeps patches small and reversible.
+“Show me hotspots: which functions correlate most with failures in the past 7 days?” Great for triage and planning.
+“Generate a failing unit test that reproduces this trace.” When it nails this, the rest goes faster.
+“Before fixing, list unintended consequences this patch could introduce.” Catches sneaky side effects.

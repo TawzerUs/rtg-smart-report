@@ -5,7 +5,6 @@ import Button from '../components/Button';
 import { useApp } from '../context/AppContext';
 import { useProject } from '../context/ProjectContext';
 import { useAuth } from '../context/AuthContext';
-import UserManagement from './UserManagement';
 
 const Settings = () => {
     const { theme, toggleTheme } = useApp();
@@ -157,12 +156,6 @@ const Settings = () => {
                     </div>
                 </div>
             </Card>
-            {/* User Management - Admin Only */}
-            {userRole === 'admin' && (
-                <div className="pt-6 border-t border-[var(--border-glass)]">
-                    <UserManagement />
-                </div>
-            )}
         </div>
     );
 };

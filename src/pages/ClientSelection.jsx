@@ -2,31 +2,63 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Building2, ArrowRight, ShieldCheck, Shield } from 'lucide-react';
 import { getCustomers } from '../services/supabaseDb';
+import { useAuth } from '../context/AuthContext';
 import eurogateLogo from '../assets/logos/eurogate.svg';
 import marsaMarocLogo from '../assets/logos/marsamaroc.svg';
-// import { useAuth } from '../context/AuthContext'; // No longer needed here as it's public
 
 const ClientSelection = () => {
     const navigate = useNavigate();
+    const { user, userRole, hasAccessToCustomer } = useAuth();
     const [clients, setClients] = useState([]);
     const [loading, setLoading] = useState(true);
-    // const { user } = useAuth(); // No longer needed here as it's public
 
     useEffect(() => {
         loadClients();
-    }, []);
+    }, [user]);
 
     const loadClients = async () => {
         setLoading(true);
-        const data = await getCustomers();
-        setClients(data);
-        setLoading(false);
+        try {
+            // Create a timeout promise
+            const timeoutPromise = new Promise((_, reject) =>
+                setTimeout(() => reject(new Error('Connection timeout')), 10000)
+            );
+
+            // Race query against timeout
+            const data = await Promise.race([
+                getCustomers(),
+                timeoutPromise
+            ]);
+
+            // Filter customers based on user access
+            let filteredClients = data;
+
+            if (user) {
+                filteredClients = userRole === 'admin'
+                    ? data
+                    : data.filter(client => hasAccessToCustomer(client.id));
+            }
+
+            setClients(filteredClients);
+        } catch (err) {
+            console.error("Failed to load clients:", err);
+            // Fallback for demo/offline if needed, or just stop loading
+            setClients([]);
+        } finally {
+            setLoading(false);
+        }
     };
 
     const handleSelectClient = (client) => {
         // Save selected client context even before login
         localStorage.setItem('selectedClient', JSON.stringify(client));
-        navigate(`/login?client=${client.id}`);
+
+        if (!user) {
+            navigate(`/login?client=${client.id}`);
+        } else {
+            // If already logged in, proceed to projects
+            navigate('/projects');
+        }
     };
 
     if (loading) {

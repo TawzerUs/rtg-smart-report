@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useAuth } from '../../context/AuthContext';
 import { useProject } from '../../context/ProjectContext';
 import Card from '../Card';
 import Button from '../Button';
@@ -8,6 +9,7 @@ import { CloudRain, Thermometer, CheckCircle, Camera } from 'lucide-react';
 
 const PaintingModule = ({ rtgId }) => {
     const { paintingData, setPaintingData, workOrders, zones } = useProject();
+    const { isOperator } = useAuth();
 
     const systems = paintingData.filter(p => p.rtgId === rtgId && p.type === 'exterior'); // Only exterior
 
@@ -172,7 +174,8 @@ const PaintingModule = ({ rtgId }) => {
                                 type="number"
                                 value={currentWeather.temp}
                                 onChange={(e) => updateZoneWeather(selectedZone, 'temp', e.target.value)}
-                                className="w-full bg-[var(--bg-dark)] border border-[var(--border-glass)] rounded p-2 text-[var(--text-main)] focus:border-[var(--primary)] outline-none"
+                                disabled={!isOperator}
+                                className={`w-full bg-[var(--bg-dark)] border border-[var(--border-glass)] rounded p-2 text-[var(--text-main)] focus:border-[var(--primary)] outline-none ${!isOperator ? 'opacity-50 cursor-not-allowed' : ''}`}
                             />
                         </div>
                         <div>
@@ -183,7 +186,8 @@ const PaintingModule = ({ rtgId }) => {
                                 type="number"
                                 value={currentWeather.humidity}
                                 onChange={(e) => updateZoneWeather(selectedZone, 'humidity', e.target.value)}
-                                className="w-full bg-[var(--bg-dark)] border border-[var(--border-glass)] rounded p-2 text-[var(--text-main)] focus:border-[var(--primary)] outline-none"
+                                disabled={!isOperator}
+                                className={`w-full bg-[var(--bg-dark)] border border-[var(--border-glass)] rounded p-2 text-[var(--text-main)] focus:border-[var(--primary)] outline-none ${!isOperator ? 'opacity-50 cursor-not-allowed' : ''}`}
                             />
                         </div>
                     </div>
@@ -230,6 +234,7 @@ const PaintingModule = ({ rtgId }) => {
                                                 multiple={true}
                                                 maxImages={10}
                                                 label={`Capturer ${layer.name}`}
+                                                readOnly={!isOperator}
                                             />
                                         </div>
 
@@ -259,15 +264,17 @@ const PaintingModule = ({ rtgId }) => {
                                                         </div>
                                                     )}
                                                 </div>
-                                                <Button
-                                                    variant={layer.status === 'Completed' ? 'success' : 'primary'}
-                                                    size="md"
-                                                    disabled={layer.status === 'Completed'}
-                                                    onClick={() => handleValidateLayer(system.id, layer.id)}
-                                                    icon={layer.status === 'Completed' ? CheckCircle : CheckCircle}
-                                                >
-                                                    {layer.status === 'Completed' ? 'Validé' : 'Valider'}
-                                                </Button>
+                                                {isOperator && (
+                                                    <Button
+                                                        variant={layer.status === 'Completed' ? 'success' : 'primary'}
+                                                        size="md"
+                                                        disabled={layer.status === 'Completed'}
+                                                        onClick={() => handleValidateLayer(system.id, layer.id)}
+                                                        icon={layer.status === 'Completed' ? CheckCircle : CheckCircle}
+                                                    >
+                                                        {layer.status === 'Completed' ? 'Validé' : 'Valider'}
+                                                    </Button>
+                                                )}
                                             </div>
                                         </div>
                                     </div>
@@ -277,7 +284,7 @@ const PaintingModule = ({ rtgId }) => {
                     </Card>
                 ))}
             </div>
-        </div>
+        </div >
     );
 };
 

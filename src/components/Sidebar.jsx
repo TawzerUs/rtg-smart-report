@@ -9,16 +9,16 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
     console.log('🔍 Sidebar - userRole:', userRole);
 
     const navItems = [
-        { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
-        { path: '/settings', label: 'Settings', icon: Settings },
+        { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
     ];
 
-    // Add User Management for admins only
+    // Add User Management and Settings for admins only
     if (userRole === 'admin') {
-        console.log('✅ Adding User Management link for admin');
-        navItems.splice(1, 0, { path: '/users', label: 'User Management', icon: Users });
+        console.log('✅ Adding Admin links');
+        navItems.push({ path: '/users', label: 'User Management', icon: Users });
+        navItems.push({ path: '/settings', label: 'Settings', icon: Settings });
     } else {
-        console.log('❌ User Management hidden - userRole is:', userRole);
+        console.log('❌ Admin links hidden - userRole is:', userRole);
     }
 
     return (

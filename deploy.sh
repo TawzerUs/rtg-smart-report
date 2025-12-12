@@ -11,6 +11,10 @@ cd "/Users/adiltawzer/Documents/Tawzer AppLabs 2025/Webapp2025/RTG Smart Report"
 
 # Build the application
 echo "📦 Building application..."
+# Explicitly load env vars (ignoring comments)
+if [ -f .env ]; then
+  export $(grep -v '^#' .env | xargs)
+fi
 npm run build
 
 # Check if build was successful

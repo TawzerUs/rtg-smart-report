@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useProject } from '../../context/ProjectContext';
+import { useAuth } from '../../context/AuthContext';
 import Card from '../Card';
 import Button from '../Button';
 import ImageAnnotator from '../ImageAnnotator';
@@ -10,6 +11,7 @@ import { Camera, CheckCircle, Trash2, Plus, AlertTriangle, Info, Save, Image as 
 
 const InspectionModule = ({ rtgId }) => {
     const { zones, corrosionData, setCorrosionData, zoneImages, setZoneImages } = useProject();
+    const { isOperator } = useAuth();
     const [selectedZone, setSelectedZone] = useState(zones[0].id);
 
     // Multiple images per zone: { zoneId: [{ id, url, timestamp }] }
@@ -263,6 +265,7 @@ const InspectionModule = ({ rtgId }) => {
                         points={zonePoints}
                         onAddPoint={handleAddPoint}
                         onPointClick={handlePointClick}
+                        readOnly={!isOperator}
                     />
 
                     <div className="mt-4">
@@ -309,43 +312,45 @@ const InspectionModule = ({ rtgId }) => {
                                 <p className="text-sm text-[var(--text-muted)] mb-3">
                                     Validez cette zone pour confirmer l'inspection
                                 </p>
-                                <Button
-                                    variant="success"
-                                    className="w-full"
-                                    disabled={!zoneImages[selectedZone]}
-                                    onClick={async () => {
-                                        try {
-                                            const { saveCorrosionPoints } = await import('../../services/supabaseDb');
+                                {isOperator && (
+                                    <Button
+                                        variant="success"
+                                        className="w-full"
+                                        disabled={!zoneImages[selectedZone]}
+                                        onClick={async () => {
+                                            try {
+                                                const { saveCorrosionPoints } = await import('../../services/supabaseDb');
 
-                                            // Get current image
-                                            const currentImage = zoneImages[selectedZone];
-                                            const validationTimestamp = new Date().toISOString();
+                                                // Get current image
+                                                const currentImage = zoneImages[selectedZone];
+                                                const validationTimestamp = new Date().toISOString();
 
-                                            // Save full object
-                                            const newZoneData = {
-                                                points: zonePoints,
-                                                imageUrl: currentImage,
-                                                validated_at: validationTimestamp
-                                            };
+                                                // Save full object
+                                                const newZoneData = {
+                                                    points: zonePoints,
+                                                    imageUrl: currentImage,
+                                                    validated_at: validationTimestamp
+                                                };
 
-                                            await saveCorrosionPoints(rtgId, selectedZone, newZoneData);
+                                                await saveCorrosionPoints(rtgId, selectedZone, newZoneData);
 
-                                            // Update Context
-                                            setZones(prev => prev.map(z =>
-                                                z.id === selectedZone ? { ...z, validated_at: new Date().toISOString() } : z
-                                            ));
+                                                // Update Context
+                                                setZones(prev => prev.map(z =>
+                                                    z.id === selectedZone ? { ...z, validated_at: new Date().toISOString() } : z
+                                                ));
 
-                                            alert(`Zone ${zones.find(z => z.id === selectedZone)?.name} validée avec succès!`);
-                                        } catch (err) {
-                                            console.error('Validation failed:', err);
-                                            alert(`Erreur lors de la validation: ${err.message || 'Erreur inconnue'}`);
-                                        }
-                                    }}
-                                >
-                                    <CheckCircle className="w-4 h-4 mr-2" />
-                                    Valider Zone {zones.find(z => z.id === selectedZone)?.name}
-                                </Button>
-                                {!zoneImages[selectedZone] && (
+                                                alert(`Zone ${zones.find(z => z.id === selectedZone)?.name} validée avec succès!`);
+                                            } catch (err) {
+                                                console.error('Validation failed:', err);
+                                                alert(`Erreur lors de la validation: ${err.message || 'Erreur inconnue'}`);
+                                            }
+                                        }}
+                                    >
+                                        <CheckCircle className="w-4 h-4 mr-2" />
+                                        Valider Zone {zones.find(z => z.id === selectedZone)?.name}
+                                    </Button>
+                                )}
+                                {!zoneImages[selectedZone] && isOperator && (
                                     <p className="text-xs text-[var(--warning)] mt-2 flex items-center gap-1">
                                         <AlertTriangle className="w-3 h-3" />
                                         Ajoutez une image de la zone pour valider
@@ -358,7 +363,7 @@ const InspectionModule = ({ rtgId }) => {
             </div>
 
             {/* Edit Modal */}
-            <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Détails Corrosion">
+            <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={isOperator ? "Détails Corrosion" : "Détails Corrosion (Lecture Seule)"}>
                 {editingPoint && (
                     <div className="space-y-4">
                         <div>
@@ -372,13 +377,14 @@ const InspectionModule = ({ rtgId }) => {
                                 {['Low', 'Medium', 'High'].map(level => (
                                     <button
                                         key={level}
-                                        onClick={() => setEditingPoint({ ...editingPoint, severity: level })}
+                                        onClick={() => isOperator && setEditingPoint({ ...editingPoint, severity: level })}
+                                        disabled={!isOperator}
                                         className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${editingPoint.severity === level
                                             ? level === 'High' ? 'bg-[var(--danger)] text-white' :
                                                 level === 'Medium' ? 'bg-[var(--warning)] text-black' :
                                                     'bg-[var(--success)] text-black'
                                             : 'bg-[var(--bg-glass)] text-[var(--text-muted)] hover:bg-[var(--bg-glass-hover)]'
-                                            }`}
+                                            } ${!isOperator ? 'opacity-70 cursor-not-allowed' : ''}`}
                                     >
                                         {level === 'Low' ? 'Léger' : level === 'Medium' ? 'Moyen' : 'Sévère'}
                                     </button>
@@ -394,7 +400,8 @@ const InspectionModule = ({ rtgId }) => {
                                     setEditingPoint({ ...editingPoint, notes: e.target.value });
                                     if (e.target.value.trim() !== '') setValidationError(null);
                                 }}
-                                className={`w-full h-24 bg-[var(--bg-dark)] border rounded-lg p-3 text-[var(--text-main)] focus:border-[var(--primary)] outline-none resize-none ${validationError ? 'border-[var(--danger)]' : 'border-[var(--border-glass)]'}`}
+                                disabled={!isOperator}
+                                className={`w-full h-24 bg-[var(--bg-dark)] border rounded-lg p-3 text-[var(--text-main)] focus:border-[var(--primary)] outline-none resize-none ${validationError ? 'border-[var(--danger)]' : 'border-[var(--border-glass)]'} ${!isOperator ? 'opacity-70 cursor-not-allowed' : ''}`}
                                 placeholder="Décrire le type de corrosion, surface affectée..."
                             />
                             {validationError && (
@@ -405,16 +412,18 @@ const InspectionModule = ({ rtgId }) => {
                             )}
                         </div>
 
-                        <div className="flex gap-3 pt-4">
-                            {editingPoint.id && corrosionData.find(p => p.id === editingPoint.id) && (
-                                <Button variant="danger" icon={Trash2} onClick={handleDeletePoint} className="flex-1">
-                                    Supprimer
+                        {isOperator && (
+                            <div className="flex gap-3 pt-4">
+                                {editingPoint.id && corrosionData.find(p => p.id === editingPoint.id) && (
+                                    <Button variant="danger" icon={Trash2} onClick={handleDeletePoint} className="flex-1">
+                                        Supprimer
+                                    </Button>
+                                )}
+                                <Button variant="primary" icon={Save} onClick={handleSavePoint} className="flex-1">
+                                    Enregistrer
                                 </Button>
-                            )}
-                            <Button variant="primary" icon={Save} onClick={handleSavePoint} className="flex-1">
-                                Enregistrer
-                            </Button>
-                        </div>
+                            </div>
+                        )}
                     </div>
                 )}
             </Modal >

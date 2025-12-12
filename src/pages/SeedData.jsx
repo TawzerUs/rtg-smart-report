@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { getDemoState } from '../utils/demoData';
-import { createRTG, createWorkOrder, createZone } from '../services/supabaseDb';
+import { createRTG, createWorkOrder, createZone, getCustomerProjects, createProject, getCustomers, createCustomer } from '../services/supabaseDb';
 import { createUserDocument } from '../services/supabaseAuth';
 
 const SeedData = () => {
@@ -19,6 +19,63 @@ const SeedData = () => {
         try {
             const demoData = getDemoState();
             const rtgIdMap = {}; // Map 'RTG12' -> UUID
+            let projectId = null;
+
+            // 0. Ensure Customer and Project exist
+            addLog('Checking Prerequisites...');
+
+            // Check Project
+            // We'll target 'eurogate' customer for seeding
+            let targetCustomerId = 'eurogate';
+
+            // Try to find or create customer
+            const customers = await getCustomers();
+            let customer = customers.find(c => c.id === targetCustomerId);
+
+            if (!customer) {
+                addLog('Creating default customer (Eurogate)...');
+                try {
+                    await createCustomer({
+                        id: 'eurogate',
+                        name: 'Eurogate',
+                        type: 'Client',
+                        color: '#dd0033'
+                    });
+                    customer = { id: 'eurogate' };
+                } catch (e) {
+                    addLog(`Error creating customer: ${e.message}`);
+                    // Fallback to first available customer
+                    if (customers.length > 0) {
+                        targetCustomerId = customers[0].id;
+                        addLog(`Falling back to existing customer: ${customers[0].name}`);
+                    } else {
+                        throw new Error("No customers available to seed project into.");
+                    }
+                }
+            }
+
+            // Find or create Project
+            const projects = await getCustomerProjects(targetCustomerId);
+            let project = projects.find(p => p.name === 'Seed Demo Project');
+
+            if (!project) {
+                // Try to find ANY active RTG project
+                project = projects.find(p => p.type === 'RTG' && p.status === 'Active');
+            }
+
+            if (!project) {
+                addLog('Creating Seed Project...');
+                project = await createProject({
+                    customer_id: targetCustomerId,
+                    name: 'Seed Demo Project',
+                    type: 'RTG',
+                    description: 'Project for Demo Data',
+                    status: 'Active'
+                });
+            }
+
+            projectId = project.id;
+            addLog(`Using Project: ${project.name} (${projectId})`);
 
             // 1. Seed Zones
             addLog('Seeding Zones...');
@@ -30,7 +87,7 @@ const SeedData = () => {
                     });
                     addLog(`Created Zone: ${zone.name}`);
                 } catch (e) {
-                    addLog(`Skipped Zone ${zone.name} (might exist)`);
+                    addLog(`Skipped Zone ${zone.name} (might exist): ${e.message}`);
                 }
             }
 
@@ -39,6 +96,7 @@ const SeedData = () => {
             for (const rtg of demoData.rtgs) {
                 try {
                     const newRtg = await createRTG({
+                        projectId: projectId, // Attach to Project
                         name: rtg.name, // 'RTG12'
                         status: rtg.status,
                         location: rtg.location,
@@ -70,7 +128,7 @@ const SeedData = () => {
                         status: wo.status,
                         priority: wo.priority,
                         dueDate: wo.deadline,
-                        assignedTo: 'user-id-placeholder' // We don't have real user IDs here easily
+                        assignedTo: 'user-id-placeholder'
                     });
                     addLog(`Created WO: ${wo.title} for ${wo.rtgId}`);
                 } catch (e) {
@@ -81,11 +139,6 @@ const SeedData = () => {
             // 4. Seed Users (Optional - just entries in 'users' table)
             addLog('Seeding Users...');
             for (const user of demoData.users) {
-                // We can't create Auth users easily without admin API, 
-                // but we can try to create public.users entries if IDs were known.
-                // Since demo users have int IDs (1, 2), and Supabase uses UUIDs, 
-                // we might skip this or create dummy UUIDs if allowed.
-                // For now, let's skip to avoid foreign key issues with auth.users
                 addLog(`Skipping User ${user.name} (Auth managed)`);
             }
 

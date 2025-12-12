@@ -8,11 +8,17 @@ import { supabase } from '../lib/supabase';
 // ============== RTGs ==============
 
 // Get all RTGs
-export const getRTGs = async () => {
+// Get RTGs for a specific project
+export const getRTGs = async (projectId) => {
+    if (!projectId) {
+        console.warn('getRTGs called without projectId - returning empty to prevent data leak');
+        return [];
+    }
     try {
         const { data, error } = await supabase
             .from('rtgs')
             .select('*')
+            .eq('project_id', projectId)
             .order('created_at', { ascending: false });
 
         if (error) throw error;
@@ -46,6 +52,7 @@ export const createRTG = async (rtgData) => {
         const { data, error } = await supabase
             .from('rtgs')
             .insert({
+                project_id: rtgData.projectId || rtgData.project_id,
                 name: rtgData.name,
                 status: rtgData.status || 'active',
                 location: rtgData.location,
@@ -102,21 +109,26 @@ export const deleteRTG = async (id) => {
 };
 
 // Subscribe to RTGs (real-time)
-export const subscribeToRTGs = (callback) => {
+// Subscribe to RTGs (real-time)
+export const subscribeToRTGs = (projectId, callback) => {
+    if (!projectId) {
+        console.warn('Cannot subscribe to RTGs without projectId');
+        return () => { };
+    }
+
     // First, fetch initial data
-    getRTGs().then(data => {
+    getRTGs(projectId).then(data => {
         callback(data);
     });
 
     // Then subscribe to changes
-    const subscription = supabase
-        .channel('rtgs-changes')
+    const channel = supabase
+        .channel(`rtgs-changes-${projectId}`)
         .on('postgres_changes',
             { event: '*', schema: 'public', table: 'rtgs' },
             async (payload) => {
-                console.log('RTG change:', payload);
                 // Refetch all RTGs on any change
-                const data = await getRTGs();
+                const data = await getRTGs(projectId);
                 callback(data);
             }
         )
@@ -124,19 +136,24 @@ export const subscribeToRTGs = (callback) => {
 
     // Return unsubscribe function
     return () => {
-        subscription.unsubscribe();
+        channel.unsubscribe();
     };
 };
 
 // ============== Work Orders ==============
 
 // Get all work orders (optionally filtered by RTG)
-export const getWorkOrders = async (rtgId = null) => {
+// Get all work orders (filtered by RTG or Project)
+export const getWorkOrders = async (rtgId = null, projectId = null) => {
     try {
         let query = supabase
             .from('work_orders')
-            .select('*')
+            .select('*, rtg:rtgs!inner(project_id)') // Join with RTGs to filter by project
             .order('created_at', { ascending: false });
+
+        if (projectId) {
+            query = query.eq('rtg.project_id', projectId);
+        }
 
         if (rtgId) {
             query = query.eq('rtg_id', rtgId);
@@ -250,22 +267,23 @@ export const deleteWorkOrder = async (id) => {
 };
 
 // Subscribe to work orders (real-time)
-export const subscribeToWorkOrders = (rtgId, callback) => {
+// Subscribe to work orders (real-time)
+export const subscribeToWorkOrders = (rtgId, projectId, callback) => {
     // First, fetch initial data
-    getWorkOrders(rtgId).then(data => {
+    getWorkOrders(rtgId, projectId).then(data => {
         callback(data);
     });
 
     // Then subscribe to changes
-    const channelName = rtgId ? `work-orders-${rtgId}` : 'work-orders-all';
+    const channelName = rtgId ? `work-orders-${rtgId}` : (projectId ? `work-orders-project-${projectId}` : 'work-orders-all');
+
     const subscription = supabase
         .channel(channelName)
         .on('postgres_changes',
             { event: '*', schema: 'public', table: 'work_orders' },
             async (payload) => {
-                console.log('Work order change:', payload);
                 // Refetch work orders on any change
-                const data = await getWorkOrders(rtgId);
+                const data = await getWorkOrders(rtgId, projectId);
                 callback(data);
             }
         )
@@ -766,12 +784,22 @@ export const subscribeToZones = (callback) => {
 
 export const getCustomers = async () => {
     try {
-        const { data, error } = await supabase
-            .from('customers')
-            .select('*')
-            .order('name', { ascending: true });
+        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+        const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-        if (error) throw error;
+        const response = await fetch(`${supabaseUrl}/rest/v1/customers?select=*&order=name.asc`, {
+            headers: {
+                'apikey': supabaseKey,
+                'Authorization': `Bearer ${supabaseKey}`,
+                'Content-Type': 'application/json'
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
         return data || [];
     } catch (error) {
         console.error('Error fetching customers:', error);
@@ -896,6 +924,79 @@ export const getCustomerProjects = async (customerId) => {
     } catch (error) {
         console.error('Error fetching customer projects:', error);
         return [];
+    }
+};
+
+export const getProject = async (id) => {
+    try {
+        const { data, error } = await supabase
+            .from('projects')
+            .select('*')
+            .eq('id', id)
+            .single();
+
+        if (error) throw error;
+        return data;
+    } catch (error) {
+        console.error('Error fetching project:', error);
+        return null;
+    }
+};
+
+export const createProject = async (projectData) => {
+    try {
+        const { data: { user } } = await supabase.auth.getUser();
+
+        const { data, error } = await supabase
+            .from('projects')
+            .insert({
+                customer_id: projectData.customer_id,
+                name: projectData.name,
+                type: projectData.type || 'RTG',
+                status: projectData.status || 'Active',
+                description: projectData.description || null,
+                created_by: user?.id
+            })
+            .select()
+            .single();
+
+        if (error) throw error;
+        return data;
+    } catch (error) {
+        console.error('Error creating project:', error);
+        throw error;
+    }
+};
+
+export const updateProject = async (id, updates) => {
+    try {
+        const { data, error } = await supabase
+            .from('projects')
+            .update(updates)
+            .eq('id', id)
+            .select()
+            .single();
+
+        if (error) throw error;
+        return data;
+    } catch (error) {
+        console.error('Error updating project:', error);
+        throw error;
+    }
+};
+
+export const deleteProject = async (id) => {
+    try {
+        const { error } = await supabase
+            .from('projects')
+            .delete()
+            .eq('id', id);
+
+        if (error) throw error;
+        return true;
+    } catch (error) {
+        console.error('Error deleting project:', error);
+        throw error;
     }
 };
 

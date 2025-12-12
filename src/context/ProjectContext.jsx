@@ -19,6 +19,8 @@ export const ProjectProvider = ({ children }) => {
     const { user } = useAuth();
 
     // Data State
+    // Data State
+    const [selectedProject, setSelectedProject] = useState(null);
     const [rtgs, setRtgs] = useState([]);
     const [workOrders, setWorkOrders] = useState([]);
     const [paintingData, setPaintingData] = useState([]);
@@ -31,6 +33,18 @@ export const ProjectProvider = ({ children }) => {
     const [observations, setObservations] = useState({});
     const [loading, setLoading] = useState(true);
     const [useCloud, setUseCloud] = useState(true); // Toggle cloud/local storage
+
+    // Initialize Project from LocalStorage
+    useEffect(() => {
+        const storedProject = localStorage.getItem('selectedProject');
+        if (storedProject) {
+            try {
+                setSelectedProject(JSON.parse(storedProject));
+            } catch (e) {
+                console.error("Failed to parse selected project", e);
+            }
+        }
+    }, []);
 
     // Initialize with Demo Data or Supabase
     useEffect(() => {
@@ -50,9 +64,16 @@ export const ProjectProvider = ({ children }) => {
 
         // Logged in - use Supabase with real-time sync
         if (useCloud) {
-            console.log('📡 Subscribing to RTGs from Supabase...');
-            // Subscribe to RTGs
-            const unsubscribeRTGs = subscribeToRTGs((supabaseRTGs) => {
+            if (!selectedProject?.id) {
+                console.log('⏳ ProjectContext: No project selected, skipping subscriptions');
+                setLoading(false);
+                return;
+            }
+
+            console.log('📡 Subscribing to RTGs for Project:', selectedProject.name);
+
+            // Subscribe to RTGs (Scoped to Project)
+            const unsubscribeRTGs = subscribeToRTGs(selectedProject.id, (supabaseRTGs) => {
                 console.log('📦 Received RTGs from Supabase:', supabaseRTGs?.length || 0);
                 // Map Supabase fields to expected format (if needed)
                 const mappedRTGs = (supabaseRTGs || []).map(rtg => ({
@@ -65,16 +86,16 @@ export const ProjectProvider = ({ children }) => {
                 // Cache in localStorage
                 localStorage.setItem('rtgs', JSON.stringify(mappedRTGs));
 
-                // Generate mock data for these RTGs (since we don't have real data in DB yet)
-                const { paintingData, corrosionData } = generateMockDataForRTGs(mappedRTGs);
-                setPaintingData(paintingData);
-                setCorrosionData(corrosionData);
+                // No mock data generation - Production Mode
+                setPaintingData([]);
+                setCorrosionData([]);
 
                 setLoading(false);
             });
 
-            // Subscribe to Work Orders (all work orders, not filtered by RTG)
-            const unsubscribeWorkOrders = subscribeToWorkOrders(null, (supabaseWorkOrders) => {
+            // Subscribe to Work Orders (Scoped to Project)
+            // subscribeToWorkOrders(rtgId, projectId, callback)
+            const unsubscribeWorkOrders = subscribeToWorkOrders(null, selectedProject.id, (supabaseWorkOrders) => {
                 // Map Supabase fields to expected format
                 const mappedWorkOrders = (supabaseWorkOrders || []).map(wo => ({
                     ...wo,
@@ -208,7 +229,7 @@ export const ProjectProvider = ({ children }) => {
 
             setLoading(false);
         }
-    }, [user, useCloud]);
+    }, [user, useCloud, selectedProject]);
 
     // Load header image and observations from localStorage
     useEffect(() => {
@@ -235,9 +256,17 @@ export const ProjectProvider = ({ children }) => {
         return Math.round((completed / rtgTasks.length) * 100);
     };
 
+    // Explicit Project Selector
+    const selectProject = (project) => {
+        setSelectedProject(project);
+        localStorage.setItem('selectedProject', JSON.stringify(project));
+    };
+
     const value = {
         theme,
         toggleTheme,
+        selectedProject, // Exposed state
+        selectProject,   // Exposed setter
         rtgs,
         workOrders,
         paintingData,
