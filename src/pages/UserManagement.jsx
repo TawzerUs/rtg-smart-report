@@ -90,14 +90,33 @@ export default function UserManagement() {
     };
 
     const handleDeleteUser = async (userId) => {
-        if (!confirm("Are you sure you want to delete this user? This will only delete the database record, not the Auth account.")) return;
+        const userToDelete = users.find(u => u.id === userId);
+        const userName = userToDelete?.display_name || userToDelete?.email || 'this user';
+        
+        if (!confirm(`Are you sure you want to delete ${userName}? This will remove their database record and workspace assignments.`)) return;
 
         try {
+            setLoading(true);
             await deleteUser(userId);
-            await fetchUsers();
+            
+            // Immediately remove from local state for instant UI feedback
+            setUsers(prevUsers => prevUsers.filter(u => u.id !== userId));
+            // Also update the customers map
+            setUserCustomersMap(prev => {
+                const updated = { ...prev };
+                delete updated[userId];
+                return updated;
+            });
+            
+            // Show success feedback
+            alert(`User ${userName} has been deleted successfully.`);
         } catch (error) {
             console.error("Error deleting user:", error);
-            alert(error.message);
+            alert(`Failed to delete user: ${error.message || 'Database policy may prevent deletion'}`);
+            // Refresh to show current state
+            await fetchUsers();
+        } finally {
+            setLoading(false);
         }
     };
 

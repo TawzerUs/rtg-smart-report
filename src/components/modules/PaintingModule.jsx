@@ -5,10 +5,10 @@ import Card from '../Card';
 import Button from '../Button';
 import StatusBadge from '../StatusBadge';
 import CameraImageUpload from '../CameraImageUpload';
-import { CloudRain, Thermometer, CheckCircle, Camera } from 'lucide-react';
+import { CloudRain, Thermometer, CheckCircle, Camera, Loader2, AlertCircle } from 'lucide-react';
 
 const PaintingModule = ({ rtgId }) => {
-    const { paintingData, setPaintingData, workOrders, zones } = useProject();
+    const { paintingData, setPaintingData, workOrders, zones, loading } = useProject();
     const { isOperator } = useAuth();
 
     const systems = paintingData.filter(p => p.rtgId === rtgId && p.type === 'exterior'); // Only exterior
@@ -141,6 +141,40 @@ const PaintingModule = ({ rtgId }) => {
     };
 
     const currentWeather = getZoneWeather(selectedZone);
+
+    // Loading state
+    if (loading) {
+        return (
+            <div className="flex items-center justify-center min-h-[400px]">
+                <div className="text-center">
+                    <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-[var(--primary)]" />
+                    <p className="text-[var(--text-muted)]">Chargement des données de peinture...</p>
+                </div>
+            </div>
+        );
+    }
+
+    // Empty state - no painting systems for this RTG
+    if (systems.length === 0) {
+        return (
+            <div className="flex items-center justify-center min-h-[400px]">
+                <div className="text-center max-w-md">
+                    <AlertCircle className="w-12 h-12 mx-auto mb-4 text-[var(--warning)]" />
+                    <h3 className="text-lg font-bold text-[var(--text-main)] mb-2">
+                        Aucun système de peinture
+                    </h3>
+                    <p className="text-[var(--text-muted)] mb-4">
+                        Aucun système de peinture extérieur n'a été configuré pour cet équipement.
+                    </p>
+                    {isOperator && (
+                        <p className="text-sm text-[var(--text-dim)]">
+                            Contactez un administrateur pour configurer le système de peinture.
+                        </p>
+                    )}
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

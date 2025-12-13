@@ -1,32 +1,65 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useProject } from '../context/ProjectContext';
-import Card from '../components/Card';
 import StatusBadge from '../components/StatusBadge';
-import { Activity, ArrowRight, Battery, Calendar } from 'lucide-react';
-import eurogateLogo from '../assets/logos/eurogate.svg';
+import { ArrowRight, Calendar, Building2, Loader2, Package } from 'lucide-react';
 
 const Dashboard = () => {
-    const { rtgs, getRTGProgress } = useProject();
+    const { rtgs, getRTGProgress, selectedProject, loading } = useProject();
     const navigate = useNavigate();
 
+    // Get customer info from localStorage (set during client selection)
+    const [customerInfo, setCustomerInfo] = React.useState(null);
+
     React.useEffect(() => {
-        const selectedProject = localStorage.getItem('selectedProject');
-        if (!selectedProject) {
+        const storedProject = localStorage.getItem('selectedProject');
+        const storedClient = localStorage.getItem('selectedClient');
+        
+        if (!storedProject) {
             navigate('/');
+            return;
+        }
+
+        if (storedClient) {
+            try {
+                setCustomerInfo(JSON.parse(storedClient));
+            } catch (e) {
+                console.error('Failed to parse client info', e);
+            }
         }
     }, [navigate]);
+
+    // Dynamic project/customer name
+    const projectName = selectedProject?.name || 'Project';
+    const customerName = customerInfo?.name || 'Customer';
 
     return (
         <div className="space-y-6">
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
+                    {/* Dynamic logo or fallback icon */}
                     <div className="p-2 bg-white/5 rounded-lg border border-[var(--border-glass)]">
-                        <img src={eurogateLogo} alt="Eurogate" className="h-8 md:h-10 w-auto" />
+                        {customerInfo?.logo_url ? (
+                            <img 
+                                src={customerInfo.logo_url} 
+                                alt={customerName} 
+                                className="h-8 md:h-10 w-auto"
+                                onError={(e) => {
+                                    e.target.style.display = 'none';
+                                    e.target.nextSibling.style.display = 'block';
+                                }}
+                            />
+                        ) : null}
+                        <Building2 
+                            className="h-8 md:h-10 w-auto text-[var(--primary)]" 
+                            style={{ display: customerInfo?.logo_url ? 'none' : 'block' }}
+                        />
                     </div>
                     <div>
                         <h1 className="text-3xl font-bold text-gradient">Tableau de Bord RTG</h1>
-                        <p className="text-[var(--text-muted)]">Suivi de projet Eurogate / Spidercord</p>
+                        <p className="text-[var(--text-muted)]">
+                            {projectName} — {customerName}
+                        </p>
                     </div>
                 </div>
                 <div className="flex gap-4">
@@ -37,7 +70,34 @@ const Dashboard = () => {
                 </div>
             </div>
 
+            {/* Loading State */}
+            {loading && (
+                <div className="flex items-center justify-center min-h-[300px]">
+                    <div className="text-center">
+                        <Loader2 className="w-10 h-10 animate-spin mx-auto mb-4 text-[var(--primary)]" />
+                        <p className="text-[var(--text-muted)]">Chargement des équipements...</p>
+                    </div>
+                </div>
+            )}
+
+            {/* Empty State */}
+            {!loading && rtgs.length === 0 && (
+                <div className="flex items-center justify-center min-h-[300px]">
+                    <div className="text-center max-w-md">
+                        <Package className="w-16 h-16 mx-auto mb-4 text-[var(--text-dim)]" />
+                        <h3 className="text-xl font-bold text-[var(--text-main)] mb-2">
+                            Aucun équipement RTG
+                        </h3>
+                        <p className="text-[var(--text-muted)]">
+                            Aucun équipement RTG n'a été ajouté à ce projet. 
+                            Contactez un administrateur pour configurer la flotte.
+                        </p>
+                    </div>
+                </div>
+            )}
+
             {/* Fleet Grid */}
+            {!loading && rtgs.length > 0 && (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {rtgs.map((rtg) => {
                     const progress = getRTGProgress(rtg.id);
@@ -89,6 +149,7 @@ const Dashboard = () => {
                     );
                 })}
             </div>
+            )}
         </div>
     );
 };

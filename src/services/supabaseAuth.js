@@ -251,34 +251,62 @@ export const onAuthStateChange = (callback) => {
     };
 };
 
-// Fetch user role from database
+// Fetch user role from database with timeout protection
 export const fetchUserRole = async (userId, email) => {
-    try {
-        console.log(`fetchUserRole: Fetching role for user: ${userId}`);
-        const { data, error } = await supabase
-            .from('users')
-            .select('role, email, display_name')
-            .eq('id', userId)
-            .single();
+    // Create a timeout promise to prevent hanging
+    const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('fetchUserRole timeout after 4s')), 4000);
+    });
 
-        if (error && error.code === 'PGRST116') { // PGRST116 means no rows found
-            console.warn(`fetchUserRole: User ${userId} not found in public.users table. Attempting to create.`);
-            // User exists in auth.users but not in public.users, create a record
-            await createUserDocument(userId, email, email?.split('@')[0], 'viewer');
-            console.log(`fetchUserRole: User ${userId} created in public.users with default role 'viewer'.`);
-            return 'viewer';
-        } else if (error) {
+    const fetchPromise = (async () => {
+        try {
+            console.log(`fetchUserRole: Fetching role for user: ${userId}`);
+            
+            // First, verify we have a valid session
+            const { data: session } = await supabase.auth.getSession();
+            if (!session?.session) {
+                console.warn('fetchUserRole: No active session, defaulting to viewer');
+                return 'viewer';
+            }
+
+            const { data, error } = await supabase
+                .from('users')
+                .select('role, email, display_name')
+                .eq('id', userId)
+                .single();
+
+            if (error && error.code === 'PGRST116') { // PGRST116 means no rows found
+                console.warn(`fetchUserRole: User ${userId} not found in public.users table. Attempting to create.`);
+                // User exists in auth.users but not in public.users, create a record
+                try {
+                    await createUserDocument(userId, email, email?.split('@')[0], 'viewer');
+                    console.log(`fetchUserRole: User ${userId} created in public.users with default role 'viewer'.`);
+                } catch (createErr) {
+                    console.error('fetchUserRole: Failed to create user document:', createErr);
+                }
+                return 'viewer';
+            } else if (error) {
+                console.error('Error fetching user role:', error);
+                return 'viewer';
+            }
+
+            if (data) {
+                console.log(`fetchUserRole: Found role '${data.role}' for user ${userId}`);
+                return data.role || 'viewer';
+            }
+
+            return 'viewer'; // Default role
+        } catch (error) {
             console.error('Error fetching user role:', error);
             return 'viewer';
         }
+    })();
 
-        if (data) {
-            return data.role || 'viewer';
-        }
-
-        return 'viewer'; // Default role
-    } catch (error) {
-        console.error('Error fetching user role:', error);
+    // Race between fetch and timeout
+    try {
+        return await Promise.race([fetchPromise, timeoutPromise]);
+    } catch (err) {
+        console.error('fetchUserRole: Timeout or error, defaulting to viewer:', err.message);
         return 'viewer';
     }
 };

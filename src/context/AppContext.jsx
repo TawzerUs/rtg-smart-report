@@ -214,13 +214,6 @@ export const AppProvider = ({ children }) => {
             corrosionPoints: corrosion.length,
             paintingProgress
         };
-
-        return {
-            totalWorkOrders: workOrders.length,
-            activeWorkOrders: workOrders.filter(wo => wo.status !== 'Completed').length,
-            totalLogs: logs.length,
-            corrosionPoints: corrosion.length,
-        };
     };
 
     const generateDailyReport = (rtgId, date) => {

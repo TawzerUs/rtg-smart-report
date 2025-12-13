@@ -1,22 +1,56 @@
-import { initializeApp } from "firebase/app";
-import { getAuth } from "firebase/auth";
-import { getFirestore } from "firebase/firestore";
-import { getAnalytics } from "firebase/analytics";
-import { getStorage } from "firebase/storage";
+/**
+ * Firebase Configuration
+ * 
+ * ARCHITECTURE NOTE:
+ * - Firebase is used ONLY for Hosting and Analytics
+ * - Supabase handles: Auth, Database (PostgreSQL), Storage
+ * 
+ * This hybrid approach gives us:
+ * - Firebase Hosting: Global CDN, easy deploys
+ * - Firebase Analytics: Google Analytics integration
+ * - Supabase: Better DB, Row Level Security, real-time subscriptions
+ */
 
+import { initializeApp } from "firebase/app";
+import { getAnalytics, isSupported } from "firebase/analytics";
+
+// Firebase config from environment variables
 const firebaseConfig = {
-    apiKey: "AIzaSyBzmwi1SuAVMcRRJ0dUvUVn75lcLSsrmUs",
-    authDomain: "yooryka.firebaseapp.com",
-    projectId: "yooryka",
-    storageBucket: "yooryka.firebasestorage.app",
-    messagingSenderId: "158173796688",
-    appId: "1:158173796688:web:457df3e937a33b8702b455",
-    measurementId: "G-30S4751F9Q"
+    apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+    authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+    projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+    storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+    messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+    appId: import.meta.env.VITE_FIREBASE_APP_ID,
+    measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
 };
 
-// Initialize Firebase
+// Validate config in development
+if (import.meta.env.DEV) {
+    const missing = Object.entries(firebaseConfig)
+        .filter(([_, value]) => !value)
+        .map(([key]) => key);
+    
+    if (missing.length > 0) {
+        console.warn('⚠️ Missing Firebase env vars:', missing.join(', '));
+        console.warn('Firebase Analytics will be disabled.');
+    }
+}
+
+// Initialize Firebase App
 export const app = initializeApp(firebaseConfig);
-export const auth = getAuth(app);
-export const db = getFirestore(app, "yoorykadb"); // Use yoorykadb database
-export const storage = getStorage(app);
-export const analytics = getAnalytics(app);
+
+// Initialize Analytics only if supported (not in SSR, has valid config)
+export let analytics = null;
+
+isSupported().then((supported) => {
+    if (supported && firebaseConfig.apiKey) {
+        analytics = getAnalytics(app);
+        console.log('📊 Firebase Analytics initialized');
+    }
+}).catch(() => {
+    // Analytics not supported in this environment
+});
+
+// REMOVED: auth, db, storage - These are handled by Supabase
+// See: src/lib/supabase.js, src/services/supabaseAuth.js, src/services/supabaseStorage.js

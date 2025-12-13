@@ -7,7 +7,6 @@ import ReportTemplate from '../reports/ReportTemplate';
 import { FileText, Download, Eye, Printer } from 'lucide-react';
 
 const ReportModule = ({ rtgId }) => {
-    console.log('📄 ReportModule rendering for RTG:', rtgId);
     const {
         rtgs = [],
         workOrders = [],
@@ -38,16 +37,6 @@ const ReportModule = ({ rtgId }) => {
 
     const lavagePhotos = lavageTask?.photos || { before: [], after: [] };
     const sablagePhotos = sablageTask?.photos?.sablage || {}; // { zoneId: [urls] }
-
-    console.log('🔍 DEBUG REPORT PHOTOS:', {
-        corrosion: corrosion.length,
-        painting: painting.length,
-        coating: coatingControl.length,
-        lavage: lavagePhotos,
-        sablage: sablagePhotos
-    });
-
-    console.log('📄 Report data:', { rtg: !!rtg, tasks: tasks.length, corrosion: corrosion.length, painting: painting.length });
 
     // Mock Weather (could be passed from global state if available)
     const weather = { temp: 24, humidity: 45 };

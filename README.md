@@ -25,10 +25,50 @@ A comprehensive operations follow-up system for RTG (Rubber Tyred Gantry) fleet 
 - **Frontend**: React 18 + Vite
 - **Routing**: React Router v6
 - **State Management**: React Context API
-- **Styling**: Vanilla CSS with Glassmorphism & Neon design system
+- **Styling**: TailwindCSS + Custom CSS with Glassmorphism & Neon design system
 - **Icons**: Lucide React
 - **PDF Generation**: jsPDF + jsPDF-AutoTable
-- **Data Persistence**: localStorage (ready for backend integration)
+
+## 🏗️ Architecture
+
+This application uses a **hybrid cloud architecture**:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    Firebase Hosting                          │
+│                  (Static Files / CDN)                        │
+│                   yooryka.web.app                            │
+└─────────────────────────────────────────────────────────────┘
+                            │
+                            ▼
+┌─────────────────────────────────────────────────────────────┐
+│                     React SPA                                │
+│                                                              │
+│   ┌──────────────┐    ┌──────────────┐    ┌──────────────┐  │
+│   │   Supabase   │    │   Supabase   │    │   Firebase   │  │
+│   │     Auth     │    │  PostgreSQL  │    │  Analytics   │  │
+│   │              │    │   + Storage  │    │              │  │
+│   └──────────────┘    └──────────────┘    └──────────────┘  │
+└─────────────────────────────────────────────────────────────┘
+```
+
+| Service | Purpose | Why? |
+|---------|---------|------|
+| **Firebase Hosting** | Static file hosting, CDN | Free tier, global CDN, easy CI/CD |
+| **Supabase Auth** | User authentication | Built-in RLS, OAuth providers |
+| **Supabase Database** | PostgreSQL database | Real-time subscriptions, Row Level Security |
+| **Supabase Storage** | File/image storage | Integrated with auth, direct uploads |
+| **Firebase Analytics** | User analytics | Google Analytics integration |
+
+### Key Files
+
+| File | Purpose |
+|------|---------|
+| `src/lib/supabase.js` | Supabase client initialization |
+| `src/firebase.js` | Firebase Analytics only (not auth/db) |
+| `src/services/supabaseAuth.js` | Authentication service |
+| `src/services/supabaseDb.js` | Database CRUD operations |
+| `src/services/supabaseStorage.js` | File upload/download |
 
 ## 📦 Installation
 
@@ -42,9 +82,26 @@ cd rtg-smart-report
 # Install dependencies
 npm install
 
+# Set up environment variables
+cp .env.example .env
+# Edit .env with your Supabase and Firebase credentials
+
 # Start development server
 npm run dev
 ```
+
+### Environment Variables
+
+Create a `.env` file based on `.env.example`:
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `VITE_SUPABASE_URL` | ✅ Yes | Supabase project URL |
+| `VITE_SUPABASE_ANON_KEY` | ✅ Yes | Supabase anonymous key |
+| `VITE_FIREBASE_API_KEY` | Optional | Firebase API key (for analytics) |
+| `VITE_FIREBASE_*` | Optional | Other Firebase config values |
+
+> ⚠️ Never commit `.env` to version control. It's already in `.gitignore`.
 
 ## 🎯 Usage
 

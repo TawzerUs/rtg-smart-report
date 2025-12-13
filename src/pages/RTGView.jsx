@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useProject } from '../context/ProjectContext';
 import Card from '../components/Card';
 import StatusBadge from '../components/StatusBadge';
 import {
     Activity, Droplets, Search, Layers, Brush, Shield, FileText,
-    Info, Calendar, MapPin
+    Info, Calendar, MapPin, Loader2, AlertCircle, ArrowLeft
 } from 'lucide-react';
 
 import LavageModule from '../components/modules/LavageModule';
@@ -18,12 +18,48 @@ import ReportModule from '../components/modules/ReportModule';
 
 const RTGView = () => {
     const { id } = useParams();
-    const { rtgs, getRTGProgress } = useProject();
+    const navigate = useNavigate();
+    const { rtgs, getRTGProgress, loading } = useProject();
     const [activeTab, setActiveTab] = useState('lavage');
 
     // Find RTG by ID or Name (to support readable URLs)
     const rtg = rtgs.find(r => r.id === id || r.name === id);
-    if (!rtg) return <div className="text-center py-10">RTG Not Found</div>;
+
+    // Loading state
+    if (loading) {
+        return (
+            <div className="flex items-center justify-center min-h-[400px]">
+                <div className="text-center">
+                    <Loader2 className="w-10 h-10 animate-spin mx-auto mb-4 text-[var(--primary)]" />
+                    <p className="text-[var(--text-muted)]">Chargement de l'équipement...</p>
+                </div>
+            </div>
+        );
+    }
+
+    // Not found state
+    if (!rtg) {
+        return (
+            <div className="flex items-center justify-center min-h-[400px]">
+                <div className="text-center max-w-md">
+                    <AlertCircle className="w-16 h-16 mx-auto mb-4 text-[var(--error)]" />
+                    <h3 className="text-xl font-bold text-[var(--text-main)] mb-2">
+                        Équipement introuvable
+                    </h3>
+                    <p className="text-[var(--text-muted)] mb-6">
+                        L'équipement "{id}" n'existe pas ou vous n'avez pas accès.
+                    </p>
+                    <button
+                        onClick={() => navigate('/dashboard')}
+                        className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[var(--primary)] text-white hover:bg-[var(--primary-hover)] transition-colors"
+                    >
+                        <ArrowLeft className="w-4 h-4" />
+                        Retour au tableau de bord
+                    </button>
+                </div>
+            </div>
+        );
+    }
 
     const progress = getRTGProgress(id);
 
@@ -106,10 +142,7 @@ const RTGView = () => {
                 {tabs.map((tab) => (
                     <button
                         key={tab.id}
-                        onClick={() => {
-                            console.log('🔄 Switching tab to:', tab.id);
-                            setActiveTab(tab.id);
-                        }}
+                        onClick={() => setActiveTab(tab.id)}
                         className={`flex items-center gap-2 px-6 py-3 font-medium text-sm transition-all relative whitespace-nowrap ${activeTab === tab.id
                             ? 'text-[var(--text-main)]'
                             : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'

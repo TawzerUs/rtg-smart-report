@@ -8,15 +8,12 @@ import Layout from './layouts/Layout';
 import Dashboard from './pages/Dashboard';
 import RTGView from './pages/RTGView';
 import Settings from './pages/Settings';
-import Login from './pages/Login';
-import SimpleLogin from './pages/SimpleLogin';
 import CleanLogin from './pages/CleanLogin';
 import Register from './pages/Register';
 import AuthCallback from './pages/AuthCallback';
 import UserManagement from './pages/UserManagement';
 import AdminSetup from './pages/AdminSetup';
 import SeedData from './pages/SeedData';
-import DirectLogin from './pages/DirectLogin';
 import ClientSelection from './pages/ClientSelection';
 import ProjectSelection from './pages/ProjectSelection';
 import AdminDashboard from './pages/AdminDashboard';
@@ -35,56 +32,62 @@ function App() {
                                 <Route path="/" element={<ClientSelection />} />
                                 <Route path="/clients" element={<ClientSelection />} />
                                 <Route path="/login" element={<CleanLogin />} />
-                                <Route path="/clean-login" element={<CleanLogin />} />
-                                <Route path="/simple-login" element={<SimpleLogin />} />
-                                <Route path="/old-login" element={<Login />} />
-                                {/* <Route path="/direct-login" element={<DirectLogin />} /> */}
                                 <Route path="/register" element={<Register />} />
                                 <Route path="/auth/callback" element={<AuthCallback />} />
                                 <Route path="/admin-setup" element={<AdminSetup />} />
                                 <Route path="/seed-data" element={<SeedData />} />
 
-                                {/* Protected routes */}
+                                {/* Protected routes - all wrapped with ErrorBoundary */}
                                 <Route path="/dashboard" element={
                                     <ProtectedRoute>
-                                        <Layout>
-                                            <Dashboard />
-                                        </Layout>
+                                        <ErrorBoundary>
+                                            <Layout>
+                                                <Dashboard />
+                                            </Layout>
+                                        </ErrorBoundary>
                                     </ProtectedRoute>
                                 } />
                                 <Route path="/projects" element={
                                     <ProtectedRoute>
-                                        <ProjectSelection />
+                                        <ErrorBoundary>
+                                            <ProjectSelection />
+                                        </ErrorBoundary>
                                     </ProtectedRoute>
                                 } />
                                 <Route path="/admin" element={
                                     <ProtectedRoute>
-                                        <Layout>
-                                            <AdminDashboard />
-                                        </Layout>
+                                        <ErrorBoundary>
+                                            <Layout>
+                                                <AdminDashboard />
+                                            </Layout>
+                                        </ErrorBoundary>
                                     </ProtectedRoute>
                                 } />
                                 <Route path="/rtg/:id" element={
                                     <ProtectedRoute>
-                                        <Layout>
-                                            <RTGView />
-                                        </Layout>
+                                        <ErrorBoundary>
+                                            <Layout>
+                                                <RTGView />
+                                            </Layout>
+                                        </ErrorBoundary>
                                     </ProtectedRoute>
                                 } />
                                 <Route path="/settings" element={
                                     <ProtectedRoute>
-                                        <Layout>
-                                            <ErrorBoundary>
+                                        <ErrorBoundary>
+                                            <Layout>
                                                 <Settings />
-                                            </ErrorBoundary>
-                                        </Layout>
+                                            </Layout>
+                                        </ErrorBoundary>
                                     </ProtectedRoute>
                                 } />
                                 <Route path="/users" element={
                                     <ProtectedRoute requireAdmin>
-                                        <Layout>
-                                            <UserManagement />
-                                        </Layout>
+                                        <ErrorBoundary>
+                                            <Layout>
+                                                <UserManagement />
+                                            </Layout>
+                                        </ErrorBoundary>
                                     </ProtectedRoute>
                                 } />
                             </Routes>

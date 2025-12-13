@@ -5,28 +5,65 @@ import { supabase } from '../lib/supabase';
  * Provides CRUD operations and real-time subscriptions for the database
  */
 
+// ============== PAGINATION CONFIG ==============
+const DEFAULT_PAGE_SIZE = 50;
+const MAX_PAGE_SIZE = 100;
+
+/**
+ * Helper to apply pagination to queries
+ * @param {number} page - Page number (1-indexed)
+ * @param {number} pageSize - Items per page
+ * @returns {{ from: number, to: number }}
+ */
+const getPaginationRange = (page = 1, pageSize = DEFAULT_PAGE_SIZE) => {
+    const size = Math.min(pageSize, MAX_PAGE_SIZE);
+    const from = (page - 1) * size;
+    const to = from + size - 1;
+    return { from, to };
+};
+
 // ============== RTGs ==============
 
-// Get all RTGs
-// Get RTGs for a specific project
-export const getRTGs = async (projectId) => {
+// Get RTGs for a specific project (with optional pagination)
+export const getRTGs = async (projectId, options = {}) => {
+    const { page = 1, pageSize = DEFAULT_PAGE_SIZE } = options;
+    
     if (!projectId) {
         console.warn('getRTGs called without projectId - returning empty to prevent data leak');
         return [];
     }
     try {
-        const { data, error } = await supabase
+        const { from, to } = getPaginationRange(page, pageSize);
+        
+        const { data, error, count } = await supabase
             .from('rtgs')
-            .select('*')
+            .select('*', { count: 'exact' })
             .eq('project_id', projectId)
-            .order('created_at', { ascending: false });
+            .order('created_at', { ascending: false })
+            .range(from, to);
 
         if (error) throw error;
-        return data || [];
+        
+        // Return data with pagination metadata
+        return {
+            data: data || [],
+            pagination: {
+                page,
+                pageSize,
+                total: count || 0,
+                totalPages: Math.ceil((count || 0) / pageSize)
+            }
+        };
     } catch (error) {
         console.error('Error fetching RTGs:', error);
-        return [];
+        return { data: [], pagination: { page: 1, pageSize, total: 0, totalPages: 0 } };
     }
+};
+
+// Legacy wrapper for backward compatibility (returns array directly)
+export const getRTGsLegacy = async (projectId) => {
+    const result = await getRTGs(projectId, { page: 1, pageSize: MAX_PAGE_SIZE });
+    return result.data || [];
 };
 
 // Get single RTG by ID
@@ -108,16 +145,15 @@ export const deleteRTG = async (id) => {
     }
 };
 
-// Subscribe to RTGs (real-time)
-// Subscribe to RTGs (real-time)
+// Subscribe to RTGs (real-time) - uses legacy function for backward compatibility
 export const subscribeToRTGs = (projectId, callback) => {
     if (!projectId) {
         console.warn('Cannot subscribe to RTGs without projectId');
         return () => { };
     }
 
-    // First, fetch initial data
-    getRTGs(projectId).then(data => {
+    // First, fetch initial data (using legacy for backward compatibility)
+    getRTGsLegacy(projectId).then(data => {
         callback(data);
     });
 
@@ -127,8 +163,8 @@ export const subscribeToRTGs = (projectId, callback) => {
         .on('postgres_changes',
             { event: '*', schema: 'public', table: 'rtgs' },
             async (payload) => {
-                // Refetch all RTGs on any change
-                const data = await getRTGs(projectId);
+                // Refetch all RTGs on any change (using legacy for backward compatibility)
+                const data = await getRTGsLegacy(projectId);
                 callback(data);
             }
         )
@@ -142,13 +178,14 @@ export const subscribeToRTGs = (projectId, callback) => {
 
 // ============== Work Orders ==============
 
-// Get all work orders (optionally filtered by RTG)
-// Get all work orders (filtered by RTG or Project)
-export const getWorkOrders = async (rtgId = null, projectId = null) => {
+// Get work orders (filtered by RTG or Project, with optional pagination)
+export const getWorkOrders = async (rtgId = null, projectId = null, options = {}) => {
+    const { page = 1, pageSize = DEFAULT_PAGE_SIZE, paginate = false } = options;
+    
     try {
         let query = supabase
             .from('work_orders')
-            .select('*, rtg:rtgs!inner(project_id)') // Join with RTGs to filter by project
+            .select('*, rtg:rtgs!inner(project_id)', { count: paginate ? 'exact' : undefined })
             .order('created_at', { ascending: false });
 
         if (projectId) {
@@ -159,13 +196,33 @@ export const getWorkOrders = async (rtgId = null, projectId = null) => {
             query = query.eq('rtg_id', rtgId);
         }
 
-        const { data, error } = await query;
+        // Apply pagination if requested
+        if (paginate) {
+            const { from, to } = getPaginationRange(page, pageSize);
+            query = query.range(from, to);
+        }
+
+        const { data, error, count } = await query;
 
         if (error) throw error;
+        
+        // Return with pagination metadata if paginate=true
+        if (paginate) {
+            return {
+                data: data || [],
+                pagination: {
+                    page,
+                    pageSize,
+                    total: count || 0,
+                    totalPages: Math.ceil((count || 0) / pageSize)
+                }
+            };
+        }
+        
         return data || [];
     } catch (error) {
         console.error('Error fetching work orders:', error);
-        return [];
+        return paginate ? { data: [], pagination: { page: 1, pageSize, total: 0, totalPages: 0 } } : [];
     }
 };
 
@@ -359,15 +416,71 @@ export const updateUser = async (id, updates) => {
     }
 };
 
-// Delete user
+// Delete user via Edge Function (secure server-side deletion)
+// Falls back to direct DB delete if Edge Function not available
 export const deleteUser = async (id) => {
     try {
+        // Try Edge Function first (handles both DB and Auth deletion)
+        const session = await supabase.auth.getSession();
+        const accessToken = session?.data?.session?.access_token;
+
+        if (accessToken) {
+            const functionsUrl = import.meta.env.VITE_SUPABASE_URL?.replace('.supabase.co', '.supabase.co/functions/v1');
+            
+            if (functionsUrl) {
+                try {
+                    const response = await fetch(`${functionsUrl}/delete-user`, {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${accessToken}`,
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ userId: id }),
+                    });
+
+                    const result = await response.json();
+
+                    if (response.ok && result.success) {
+                        return true;
+                    }
+
+                    // If Edge Function returns a specific error, throw it
+                    if (result.error) {
+                        throw new Error(result.error);
+                    }
+                } catch (fetchError) {
+                    // Edge Function not deployed yet, fall through to direct delete
+                    console.warn('Edge Function not available, trying direct delete:', fetchError.message);
+                }
+            }
+        }
+
+        // Fallback: Direct database delete (may be blocked by RLS)
+        // First, delete user_customers assignments
+        const { error: customerError } = await supabase
+            .from('user_customers')
+            .delete()
+            .eq('user_id', id);
+
+        if (customerError) {
+            console.warn('Error deleting user customer assignments:', customerError);
+        }
+
+        // Then delete the user record
         const { error } = await supabase
             .from('users')
             .delete()
             .eq('id', id);
 
-        if (error) throw error;
+        if (error) {
+            if (error.code === '42501' || error.message?.includes('policy')) {
+                throw new Error('Permission denied. Please use the admin script: node scripts/delete-user.js <email>');
+            }
+            throw error;
+        }
+
+        // Note: This only deletes from users table, not auth.users
+        // User may still be able to log in. For complete deletion, deploy the Edge Function.
         return true;
     } catch (error) {
         console.error('Error deleting user:', error);

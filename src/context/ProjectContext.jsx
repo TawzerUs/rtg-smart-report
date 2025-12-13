@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { getDemoState, generateMockDataForRTGs } from '../utils/demoData';
+import { getDemoState } from '../utils/demoData';
 import { useAuth } from './AuthContext';
 import {
     subscribeToRTGs,
@@ -65,16 +65,12 @@ export const ProjectProvider = ({ children }) => {
         // Logged in - use Supabase with real-time sync
         if (useCloud) {
             if (!selectedProject?.id) {
-                console.log('⏳ ProjectContext: No project selected, skipping subscriptions');
                 setLoading(false);
                 return;
             }
 
-            console.log('📡 Subscribing to RTGs for Project:', selectedProject.name);
-
             // Subscribe to RTGs (Scoped to Project)
             const unsubscribeRTGs = subscribeToRTGs(selectedProject.id, (supabaseRTGs) => {
-                console.log('📦 Received RTGs from Supabase:', supabaseRTGs?.length || 0);
                 // Map Supabase fields to expected format (if needed)
                 const mappedRTGs = (supabaseRTGs || []).map(rtg => ({
                     ...rtg,
@@ -86,9 +82,8 @@ export const ProjectProvider = ({ children }) => {
                 // Cache in localStorage
                 localStorage.setItem('rtgs', JSON.stringify(mappedRTGs));
 
-                // No mock data generation - Production Mode
-                setPaintingData([]);
-                setCorrosionData([]);
+                // Painting and Corrosion data are fetched via their own subscriptions
+                // Don't reset them here
 
                 setLoading(false);
             });
@@ -112,13 +107,11 @@ export const ProjectProvider = ({ children }) => {
                 if (data && data.length > 0) {
                     const mapped = (data || []).map(p => ({ ...p, rtgId: p.rtg_id }));
                     setPaintingData(mapped);
-                } else {
-                    console.log("⚠️ No painting data in DB, keeping existing (mock) data");
                 }
+                // Keep existing (mock) data if DB returns empty
             });
 
             const unsubscribeCoating = subscribeToCoatingControls(null, (data) => {
-                console.log('📦 Received Coating Controls:', data?.length || 0, data);
                 const mapped = (data || []).map(c => ({
                     ...c,
                     rtgId: c.rtg_id,
@@ -128,7 +121,6 @@ export const ProjectProvider = ({ children }) => {
                     dftReadings: c.dft_readings,
                     surfaceTemp: c.surface_temp
                 }));
-                console.log('📦 Mapped Coating Controls:', mapped);
                 setCoatingControlData(mapped);
             });
 
@@ -205,27 +197,23 @@ export const ProjectProvider = ({ children }) => {
                 if (unsubscribeZones) unsubscribeZones();
             };
         } else {
-            // Fallback to localStorage
-            console.log('💾 Using localStorage fallback');
+            // Fallback to localStorage (offline mode)
             const cachedRTGs = localStorage.getItem('rtgs');
             const cachedWorkOrders = localStorage.getItem('workOrders');
 
             if (cachedRTGs) {
-                const parsed = JSON.parse(cachedRTGs);
-                console.log('📦 Loaded', parsed.length, 'RTGs from localStorage');
-                setRtgs(parsed);
-            } else {
-                console.log('⚠️ No RTGs in localStorage');
+                setRtgs(JSON.parse(cachedRTGs));
             }
             if (cachedWorkOrders) setWorkOrders(JSON.parse(cachedWorkOrders));
 
-            // Initialize other data from demoData for now (until DB sync is ready)
-            const demoData = getDemoState();
-            setZones(demoData.zones);
-            setPaintingData(demoData.paintingData);
-            setCorrosionData(demoData.corrosionData);
-            setCoatingControlData(demoData.coatingControlData || []);
-            setUsers(demoData.users);
+            // In offline/fallback mode, data should come from cache
+            // Don't use demo data for logged-in users
+            // Zones, painting, corrosion will be empty until cloud sync
+            setZones([]);
+            setPaintingData([]);
+            setCorrosionData([]);
+            setCoatingControlData([]);
+            setUsers([]);
 
             setLoading(false);
         }

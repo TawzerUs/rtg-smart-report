@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { supabase } from '../lib/supabase';
-import { Mail, Lock, LogIn, AlertCircle } from 'lucide-react';
+import { Mail, Lock, LogIn, AlertCircle, Loader2 } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 
 const CleanLogin = () => {
@@ -10,30 +9,55 @@ const CleanLogin = () => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [clientInfo, setClientInfo] = useState(null);
+    const [checkingAuth, setCheckingAuth] = useState(true);
 
-    const { manualLogin } = useAuth();
+    const { user, loading: authLoading } = useAuth();
     const navigate = useNavigate();
-    const [searchParams] = useSearchParams(); // Need to import this
+    const [searchParams] = useSearchParams();
+
+    // Redirect if already authenticated
+    useEffect(() => {
+        if (!authLoading && user) {
+            console.log('CleanLogin: User already authenticated, redirecting to /projects');
+            navigate('/projects', { replace: true });
+        } else if (!authLoading) {
+            setCheckingAuth(false);
+        }
+    }, [user, authLoading, navigate]);
 
     useEffect(() => {
         // Get client from URL or LocalStorage
         const clientParam = searchParams.get('client');
-        let client = null;
 
         if (clientParam) {
-            // Find client logic (simplified for now directly from params or LS)
-            // In real app we might fetch client details. here we trust LS if it matches param or just LS
+            // Could fetch client details here if needed
         }
 
         const storedClient = localStorage.getItem('selectedClient');
         if (storedClient) {
-            const parsed = JSON.parse(storedClient);
-            setClientInfo(parsed);
+            try {
+                const parsed = JSON.parse(storedClient);
+                setClientInfo(parsed);
+            } catch (e) {
+                console.error('Failed to parse stored client:', e);
+            }
         } else {
             // If no client context, redirect to home
             navigate('/');
         }
     }, [navigate, searchParams]);
+
+    // Show loading while checking auth
+    if (checkingAuth || authLoading) {
+        return (
+            <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: '#0a0a12' }}>
+                <div className="text-center">
+                    <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4" style={{ color: '#00f0ff' }} />
+                    <p style={{ color: '#94a3b8' }}>Checking authentication...</p>
+                </div>
+            </div>
+        );
+    }
 
     const handleLogin = async (e) => {
         e.preventDefault();
